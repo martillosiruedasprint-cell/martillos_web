@@ -4,6 +4,7 @@ from datetime import datetime
 import os
 
 app = Flask(__name__)
+# Usamos una clave de seguridad por defecto para la sesión
 app.secret_key = os.environ.get('SECRET_KEY', 'martillos_seguridad_alta_2026')
 
 DB_PATH = 'database.db'
@@ -11,6 +12,7 @@ DB_PATH = 'database.db'
 def init_db():
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
+    # Mantenemos la estructura de la base de datos exacta
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS viajes (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -24,6 +26,7 @@ def init_db():
     conn.commit()
     conn.close()
 
+# Inicializar la base de datos al arrancar el servidor
 init_db()
 
 @app.route('/')
@@ -58,43 +61,56 @@ def solicitar_viaje():
     
     return redirect('/pasajero?status=error')
 
-# ==================== NUEVAS RUTAS PARA EL CONDUCTOR ====================
+# ==================== RUTAS SINCRONIZADAS PARA EL CONDUCTOR ====================
 
 @app.route('/conductor')
 def conductor():
-    # Carga la interfaz visual del conductor
-    return render_template('conductor.html')
+    # Pasa el nombre a la plantilla; si no hay sesión iniciada, usa 'Disponible'
+    driver_name = session.get('driver_name', 'Disponible')
+    return render_template('conductor.html', driver_name=driver_name)
 
-@app.route('/api/viaje_pendiente')
-def viaje_pendiente():
-    # El navegador del conductor consultará esta ruta cada 4 segundos buscando viajes 'Pendientes'
+@app.route('/api/check_ride')
+def check_ride():
+    # Esta ruta la consulta el JavaScript del conductor automáticamente cada 3 segundos
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
+    # Busca el viaje 'Pendiente' más reciente
     cursor.execute("SELECT id, pasajero, origen, destino FROM viajes WHERE estado = 'Pendiente' ORDER BY id DESC LIMIT 1")
     viaje = cursor.fetchone()
     conn.close()
     
     if viaje:
         return jsonify({
-            "encontrado": True,
-            "id": viaje[0],
+            "status": "found",
+            "ride_id": viaje[0],
             "pasajero": viaje[1],
             "origen": viaje[2],
             "destino": viaje[3]
         })
-    return jsonify({"encontrado": False})
+    return jsonify({"status": "searching"})
 
-@app.route('/api/aceptar_viaje', methods=['POST'])
-def aceptar_viaje():
-    viaje_id = request.json.get('id')
-    if viaje_id:
+@app.route('/api/accept_ride', methods=['POST'])
+def accept_ride():
+    # Esta ruta procesa la aceptación del viaje cuando el conductor hace clic en el botón
+    data = request.get_json()
+    if not data:
+        return jsonify({"success": False, "error": "No data received"}), 400
+        
+    ride_id = data.get('ride_id')
+    if ride_id:
         conn = sqlite3.connect(DB_PATH)
         cursor = conn.cursor()
-        cursor.execute("UPDATE viajes SET estado = 'Aceptado' WHERE id = ?", (viaje_id,))
+        # Cambiamos el estado de 'Pendiente' a 'Aceptado'
+        cursor.execute("UPDATE viajes SET estado = 'Aceptado' WHERE id = ?", (ride_id,))
         conn.commit()
         conn.close()
         return jsonify({"success": True})
-    return jsonify({"success": False})
+    return jsonify({"success": False, "error": "Missing ride_id"}), 400
+
+@app.route('/logout')
+def logout():
+    session.clear()
+    return redirect('/pasajero')
 
 if __name__ == '__main__':
     app.run()
