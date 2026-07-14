@@ -3,7 +3,6 @@ import sqlite3
 from flask import Flask, render_template, request, redirect, url_for, session, flash
 
 app = Flask(__name__)
-# Usamos una clave secreta segura para el manejo de sesiones en producción
 app.secret_key = os.environ.get('SECRET_KEY', 'martillos_ruedas_secreto_2026')
 
 DB_NAME = "database.db"
@@ -14,13 +13,13 @@ def get_db_connection():
     return conn
 
 # ==========================================
-# INICIALIZACIÓN DE LA BASE DE DATOS
+# INICIALIZACIÓN Y CONTROL DE BASE DE DATOS
 # ==========================================
 def init_db():
     conn = get_db_connection()
     cursor = conn.cursor()
     
-    # Tabla de Usuarios (Administradores, Pasajeros, Conductores)
+    # Tabla única de Usuarios (Admin, Pasajeros/Clientes, Conductores/Motorizados)
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS usuarios (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -30,14 +29,15 @@ def init_db():
             fecha_nacimiento TEXT,
             email TEXT UNIQUE NOT NULL,
             password TEXT NOT NULL,
-            rol TEXT NOT NULL, -- 'admin', 'pasajero', 'conductor'
-            placa TEXT,        -- Solo para conductores
-            serial_motor TEXT, -- Solo para conductores
-            serial_carroceria TEXT -- Solo para conductores
+            rol TEXT NOT NULL,             -- 'admin', 'pasajero', 'conductor'
+            placa TEXT,                    -- Solo motorizados
+            serial_motor TEXT,             -- Solo motorizados
+            serial_carroceria TEXT,        -- Solo motorizados
+            fecha_registro TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
     ''')
     
-    # Tabla de Solicitudes de Viajes
+    # Tabla de Viajes
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS viajes (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -53,7 +53,7 @@ def init_db():
         )
     ''')
     
-    # Insertar administrador por defecto si no existe ninguno
+    # Insertar el Administrador único inicial si no existe
     cursor.execute("SELECT * FROM usuarios WHERE rol = 'admin'")
     if not cursor.fetchone():
         cursor.execute('''
@@ -67,32 +67,27 @@ def init_db():
 init_db()
 
 # ==========================================
-# MIDDLEWARE / CONTROL DE ACCESO (PROTECCIÓN)
+# MIDDLEWARE DE CONTROL DE SESIONES
 # ==========================================
 @app.before_request
 def verificar_sesion():
-    # Rutas públicas que no requieren autenticación
     rutas_publicas = ['login', 'registro', 'static']
-    
-    # Si la petición va a una ruta pública, la dejamos pasar
     if request.endpoint in rutas_publicas or not request.endpoint:
         return
 
-    # Si no hay sesión activa, redirigir obligatoriamente al Login
     if 'usuario_id' not in session:
         return redirect(url_for('login'))
 
 # ==========================================
-# RUTAS DE AUTENTICACIÓN
+# RUTAS DE CONTROL DE FLUJO E INICIO
 # ==========================================
 
 @app.route('/')
 def index():
-    # Redirección inteligente según el rol que tenga guardado en sesión
     if 'usuario_id' in session:
         rol = session.get('rol')
         if rol == 'admin':
-            return redirect(url_for('admin_historial'))
+            return redirect(url_for('admin_panel'))
         elif rol == 'conductor':
             return redirect(url_for('conductor_panel'))
         elif rol == 'pasajero':
@@ -115,43 +110,16 @@ def login():
             session['nombre'] = user['nombre']
             session['rol'] = user['rol']
             
-            # Redireccionar según rol tras un inicio de sesión exitoso
             if user['rol'] == 'admin':
-                return redirect(url_for('admin_historial'))
+                return redirect(url_for('admin_panel'))
             elif user['rol'] == 'conductor':
                 return redirect(url_for('conductor_panel'))
             else:
                 return redirect(url_for('pasajero_panel'))
         else:
-            flash("Credenciales incorrectas. Inténtalo de nuevo.")
-            return render_template('login.html', error="Correo o contraseña incorrectos.")
+            return render_template('login.html', error="Credenciales incorrectas.")
             
     return render_template('login.html')
-
-
-@app.route('/registro', methods=['GET', 'POST'])
-def registro():
-    if request.method == 'POST':
-        nombre = request.form['nombre'].strip()
-        apellido = request.form['apellido'].strip()
-        cedula = request.form['cedula'].strip()
-        email = request.form['email'].strip()
-        password = request.form['password'].strip()
-        
-        conn = get_db_connection()
-        try:
-            conn.execute('''
-                INSERT INTO usuarios (nombre, apellido, cedula, email, password, rol)
-                VALUES (?, ?, ?, ?, ?, 'pasajero')
-            ''', (nombre, apellido, cedula, email, password))
-            conn.commit()
-            conn.close()
-            return redirect(url_for('login', registro='ok'))
-        except sqlite3.IntegrityError:
-            conn.close()
-            return render_template('registro.html', error="La cédula o el correo ya se encuentran registrados.")
-            
-    return render_template('registro.html')
 
 
 @app.route('/logout')
@@ -160,85 +128,184 @@ def logout():
     return redirect(url_for('login'))
 
 # ==========================================
-# RUTA DE ADMINISTRACIÓN (ADMIN)
+# 🛠️ CATEGORÍA 1: PANEL CENTRALIZADO DEL ADMINISTRADOR
 # ==========================================
 
-@app.route('/admin_historial')
-def admin_historial():
-    # Verificar si es admin realmente
+@app.route('/admin_panel')
+def admin_panel():
     if session.get('rol') != 'admin':
         return redirect(url_for('index'))
         
     conn = get_db_connection()
     
-    # Obtener el conteo rápido de usuarios
-    total_pasajeros = conn.execute("SELECT COUNT(*) FROM usuarios WHERE rol = 'pasajero'").fetchone()[0]
-    total_conductores = conn.execute("SELECT COUNT(*) FROM usuarios WHERE rol = 'conductor'").fetchone()[0]
+    # Listados completos para el control del Admin
+    pasajeros = conn.execute("SELECT * FROM usuarios WHERE rol = 'pasajero' ORDER BY id DESC").fetchall()
+    conductores = conn.execute("SELECT * FROM usuarios WHERE rol = 'conductor' ORDER BY id DESC").fetchall()
     
-    # Obtener el historial completo de viajes ordenado de más recientes a antiguos
+    # Historial de viajes global
     viajes_db = conn.execute('''
-        SELECT v.id, u.nombre || ' ' || u.apellido AS pasajero, v.origen, v.destino, v.monto, v.fecha_hora, v.estado
+        SELECT v.id, 
+               (u1.nombre || ' ' || u1.apellido) AS pasajero, 
+               v.origen, v.destino, v.monto, v.fecha_hora, v.estado,
+               (u2.nombre || ' ' || u2.apellido) AS conductor
         FROM viajes v
-        JOIN usuarios u ON v.pasajero_id = u.id
+        JOIN usuarios u1 ON v.pasajero_id = u1.id
+        LEFT JOIN usuarios u2 ON v.conductor_id = u2.id
         ORDER BY v.id DESC
     ''').fetchall()
     
     conn.close()
     
-    return render_template('admin_historial.html', 
+    return render_template('admin_panel.html', 
                            viajes=viajes_db, 
-                           total_pasajeros=total_pasajeros, 
-                           total_conductores=total_conductores)
+                           pasajeros=pasajeros, 
+                           conductores=conductores)
 
 
-@app.route('/admin/crear_conductor', methods=['POST'])
-def crear_conductor():
+@app.route('/admin/crear_usuario', methods=['POST'])
+def admin_crear_usuario():
     if session.get('rol') != 'admin':
         return redirect(url_for('index'))
         
+    rol = request.form['rol'] # 'pasajero' o 'conductor'
     nombre = request.form['nombre'].strip()
     apellido = request.form['apellido'].strip()
     cedula = request.form['cedula'].strip()
-    fecha_nacimiento = request.form['fecha_nacimiento']
     email = request.form['email'].strip()
     password = request.form['password'].strip()
-    placa = request.form['placa'].strip()
-    serial_motor = request.form.get('serial_motor', '').strip()
-    serial_carroceria = request.form.get('serial_carroceria', '').strip()
+    
+    # Campos opcionales exclusivos de motorizados
+    placa = request.form.get('placa', '').strip() if rol == 'conductor' else None
+    serial_motor = request.form.get('serial_motor', '').strip() if rol == 'conductor' else None
+    serial_carroceria = request.form.get('serial_carroceria', '').strip() if rol == 'conductor' else None
     
     conn = get_db_connection()
     try:
         conn.execute('''
-            INSERT INTO usuarios (nombre, apellido, cedula, fecha_nacimiento, email, password, rol, placa, serial_motor, serial_carroceria)
-            VALUES (?, ?, ?, ?, ?, ?, 'conductor', ?, ?, ?)
-        ''', (nombre, apellido, cedula, fecha_nacimiento, email, password, placa, serial_motor, serial_carroceria))
+            INSERT INTO usuarios (nombre, apellido, cedula, email, password, rol, placa, serial_motor, serial_carroceria)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ''', (nombre, apellido, cedula, email, password, rol, placa, serial_motor, serial_carroceria))
         conn.commit()
-    except sqlite3.IntegrityError as e:
-        print("Error registrando conductor:", e)
+        status = 'success'
+    except sqlite3.IntegrityError:
+        status = 'error_duplicado'
     finally:
         conn.close()
         
-    return redirect(url_for('admin_historial', status='conductor_ok'))
+    return redirect(url_for('admin_panel', status=status))
+
+
+@app.route('/admin/eliminar_usuario/<int:id>')
+def admin_eliminar_usuario(id):
+    if session.get('rol') != 'admin':
+        return redirect(url_for('index'))
+        
+    conn = get_db_connection()
+    conn.execute("DELETE FROM usuarios WHERE id = ? AND rol != 'admin'", (id,))
+    conn.commit()
+    conn.close()
+    return redirect(url_for('admin_panel', status='deleted'))
 
 # ==========================================
-# RUTAS DEL PASAJERO
+# 🏍️ CATEGORÍA 2: PANEL DE CONDUCTORES / MOTORIZADOS
+# ==========================================
+
+@app.route('/conductor')
+def conductor_panel():
+    if session.get('rol') != 'conductor':
+        return redirect(url_for('index'))
+        
+    conn = get_db_connection()
+    # Ver viajes pendientes en el sistema
+    viajes_disponibles = conn.execute('''
+        SELECT v.id, (u.nombre || ' ' || u.apellido) AS pasajero, v.origen, v.destino, v.monto, v.fecha_hora 
+        FROM viajes v
+        JOIN usuarios u ON v.pasajero_id = u.id
+        WHERE v.estado = 'Pendiente'
+        ORDER BY v.id DESC
+    ''').fetchall()
+    
+    # Ver viajes que tiene asignados o completados el conductor actual
+    mis_viajes = conn.execute('''
+        SELECT v.id, (u.nombre || ' ' || u.apellido) AS pasajero, v.origen, v.destino, v.monto, v.estado
+        FROM viajes v
+        JOIN usuarios u ON v.pasajero_id = u.id
+        WHERE v.conductor_id = ?
+        ORDER BY v.id DESC
+    ''', (session.get('usuario_id'),)).fetchall()
+    
+    conn.close()
+    return render_template('conductor_panel.html', 
+                           viajes=viajes_disponibles, 
+                           mis_viajes=mis_viajes,
+                           nombre=session.get('nombre'))
+
+
+@app.route('/conductor/aceptar/<int:viaje_id>')
+def conductor_aceptar_viaje(viaje_id):
+    if session.get('rol') != 'conductor':
+        return redirect(url_for('index'))
+        
+    conn = get_db_connection()
+    conn.execute('''
+        UPDATE viajes 
+        SET estado = 'Aceptado', conductor_id = ? 
+        WHERE id = ? AND estado = 'Pendiente'
+    ''', (session.get('usuario_id'), viaje_id))
+    conn.commit()
+    conn.close()
+    return redirect(url_for('conductor_panel'))
+
+
+@app.route('/conductor/completar/<int:viaje_id>')
+def conductor_completar_viaje(viaje_id):
+    if session.get('rol') != 'conductor':
+        return redirect(url_for('index'))
+        
+    conn = get_db_connection()
+    conn.execute('''
+        UPDATE viajes 
+        SET estado = 'Completado' 
+        WHERE id = ? AND conductor_id = ?
+    ''', (viaje_id, session.get('usuario_id')))
+    conn.commit()
+    conn.close()
+    return redirect(url_for('conductor_panel'))
+
+# ==========================================
+# 🚖 CATEGORÍA 3: PANEL DEL PASAJERO / CLIENTE
 # ==========================================
 
 @app.route('/pasajero')
 def pasajero_panel():
     if session.get('rol') != 'pasajero':
         return redirect(url_for('index'))
-    return render_template('pasajero.html', nombre=session.get('nombre'))
+        
+    conn = get_db_connection()
+    # Mostrar su propio historial de solicitudes para saber si lo aceptaron
+    mis_solicitudes = conn.execute('''
+        SELECT v.id, v.origen, v.destino, v.monto, v.estado, 
+               (u.nombre || ' ' || u.apellido || ' [Placa: ' || u.placa || ']') AS motorizado
+        FROM viajes v
+        LEFT JOIN usuarios u ON v.conductor_id = u.id
+        WHERE v.pasajero_id = ?
+        ORDER BY v.id DESC
+    ''', (session.get('usuario_id'),)).fetchall()
+    conn.close()
+    
+    return render_template('pasajero.html', 
+                           nombre=session.get('nombre'), 
+                           solicitudes=mis_solicitudes)
 
 
-@app.route('/solicitar_viaje', methods=['POST'])
-def solicitar_viaje():
+@app.route('/pasajero/solicitar', methods=['POST'])
+def pasajero_solicitar():
     if session.get('rol') != 'pasajero':
         return redirect(url_for('index'))
         
     origen = request.form['origen']
     destino = request.form['destino']
-    monto = float(request.form.get('monto', 700.0))
+    monto = 700.0  # Tarifa fija estipulada
     pasajero_id = session.get('usuario_id')
     
     conn = get_db_connection()
@@ -251,18 +318,7 @@ def solicitar_viaje():
     
     return redirect(url_for('pasajero_panel', status='success'))
 
-# ==========================================
-# RUTAS DEL CONDUCTOR (Para futuras vistas)
-# ==========================================
-
-@app.route('/conductor')
-def conductor_panel():
-    if session.get('rol') != 'conductor':
-        return redirect(url_for('index'))
-    return f"Bienvenido Conductor {session.get('nombre')}. Panel de pedidos en desarrollo."
-
 
 if __name__ == '__main__':
-    # Render asigna dinámicamente un puerto en producción
     port = int(os.environ.get("PORT", 5000))
     app.run(host='0.0.0.0', port=port, debug=False)
