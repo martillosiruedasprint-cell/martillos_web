@@ -13,12 +13,13 @@
         .input-field:focus { border-color: #ffeb3b; outline: none; }
         .btn { padding: 14px 20px; background: #ffeb3b; color: #000; border: none; font-weight: bold; cursor: pointer; border-radius: 6px; width: 100%; font-size: 16px; margin-top: 15px; }
         .btn:hover { background: #fbc02d; }
+        .btn:disabled { background: #555; color: #aaa; cursor: not-allowed; }
         .btn-logout { float: right; background: #ff3b30; color:#fff; text-decoration:none; padding:10px 20px; border-radius:6px; font-weight:bold; }
         .status { padding: 12px; margin-bottom: 20px; border-radius: 6px; text-align: center; font-weight: bold; }
         .status.success { background: #4cd964; color: #000; }
         .status.error { background: #ff3b30; color: #fff; }
+        .status.info { background: #29b6f6; color: #000; }
         
-        /* Contenedor de sugerencias del autocompletar gratuito */
         .autocomplete-suggestions {
             position: absolute;
             background: #222;
@@ -48,42 +49,97 @@
         <a href="/logout" class="btn-logout">Salir</a>
         <h1>Hola, {{ nombre }}</h1>
 
-        <div id="status-container"></div>
+        <div id="status-container">
+            <!-- Mensaje de carga del GPS -->
+            <div id="gps-status" class="status info">🛰️ Obteniendo tu ubicación exacta por GPS...</div>
+        </div>
 
         <!-- SOLICITAR VIAJE -->
         <div class="card">
             <h3>🚖 Solicitar Nuevo Viaje</h3>
             <p style="color: #aaa; font-size: 14px; margin-top: 0;">Límite del servicio: San Juan de los Morros. Tarifas de 1.000 Bs. a 10.000 Bs.</p>
             
-            <form action="/solicitar_viaje" method="POST" autocomplete="off">
-                <div style="position: relative; margin-bottom: 12px;">
-                    Dirección de Origen:
-                    <input type="text" id="origen" name="origen" required class="input-field" placeholder="Escribe el punto de salida...">
-                    <div id="origen-suggestions" class="autocomplete-suggestions"></div>
-                </div>
+            <form action="/solicitar_viaje" method="POST" autocomplete="off" id="form-viaje">
+                <!-- Campo de origen OCULTO, se llena automáticamente por GPS -->
+                <input type="hidden" id="origen" name="origen" value="Ubicación GPS no detectada">
                 
                 <div style="position: relative; margin-bottom: 12px;">
-                    Dirección de Destino:
-                    <input type="text" id="destino" name="destino" required class="input-field" placeholder="Escribe el punto de llegada...">
+                    ¿A dónde vas? (Destino):
+                    <input type="text" id="destino" name="destino" required class="input-field" placeholder="Escribe tu destino en San Juan...">
                     <div id="destino-suggestions" class="autocomplete-suggestions"></div>
                 </div>
                 
                 Monto del Viaje (Bs.):
                 <input type="number" name="monto" min="1000" max="10000" required class="input-field" placeholder="Ej: 2500">
                 
-                <button type="submit" class="btn">Pedir Moto Ahora</button>
+                <!-- Deshabilitamos el botón hasta que tengamos la ubicación del GPS -->
+                <button type="submit" id="btn-pedir" class="btn" disabled>Esperando ubicación GPS...</button>
             </form>
         </div>
     </div>
 
     <script>
-        // Coordenadas aproximadas (Bounding Box) de San Juan de los Morros
-        // Formato: oeste, sur, este, norte
         const bboxSanJuan = "-67.380,9.880,-67.320,9.930"; 
+        const gpsStatusDiv = document.getElementById('gps-status');
+        const btnPedir = document.getElementById('btn-pedir');
+        const inputOrigenOculto = document.getElementById('origen');
 
-        function configurarAutocompletar(inputId, suggestionsId) {
-            const input = document.getElementById(inputId);
-            const suggestionsContainer = document.getElementById(suggestionsId);
+        // --- SISTEMA GPS DEL DISPOSITIVO ---
+        if (navigator.geolocation) {
+            navigator.geolocation.getCurrentPosition(
+                (position) => {
+                    const lat = position.coords.latitude;
+                    const lon = position.coords.longitude;
+
+                    // Consultamos el servidor gratuito de OpenStreetMap para traducir las coordenadas a una dirección real
+                    const reverseUrl = `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&zoom=18&addressdetails=1`;
+
+                    fetch(reverseUrl, { headers: { 'Accept-Language': 'es' } })
+                        .then(response => response.json())
+                        .then(data => {
+                            if (data && data.display_name) {
+                                // Limpiamos el texto largo para que sea legible por el chofer
+                                let direccionSencilla = data.display_name.split(',').slice(0, 3).join(',');
+                                inputOrigenOculto.value = `📍 Ubicación actual (${direccionSencilla})`;
+                                
+                                // Actualizamos los elementos visuales
+                                gpsStatusDiv.className = "status success";
+                                gpsStatusDiv.innerHTML = `✅ Ubicación detectada: <i>${direccionSencilla}</i>`;
+                                btnPedir.disabled = false;
+                                btnPedir.textContent = "Pedir Moto Ahora";
+                            } else {
+                                fallbackGps(lat, lon);
+                            }
+                        })
+                        .catch(() => {
+                            fallbackGps(lat, lon);
+                        });
+                },
+                (error) => {
+                    console.error("Error de geolocalización: ", error);
+                    gpsStatusDiv.className = "status error";
+                    gpsStatusDiv.innerHTML = "❌ No pudimos acceder a tu GPS. Por favor activa los permisos de ubicación en tu navegador para continuar.";
+                },
+                { enableHighAccuracy: true, timeout: 10000 }
+            );
+        } else {
+            gpsStatusDiv.className = "status error";
+            gpsStatusDiv.innerHTML = "❌ Tu navegador no soporta la detección automática de ubicación.";
+        }
+
+        function fallbackGps(lat, lon) {
+            // En caso de que el traductor de direcciones falle, enviamos las coordenadas directas al conductor
+            inputOrigenOculto.value = `📍 Coordenadas GPS (${lat.toFixed(5)}, ${lon.toFixed(5)})`;
+            gpsStatusDiv.className = "status success";
+            gpsStatusDiv.innerHTML = "✅ Ubicación fijada por coordenadas GPS.";
+            btnPedir.disabled = false;
+            btnPedir.textContent = "Pedir Moto Ahora";
+        }
+
+        // --- AUTOCOMPLETADO DE DESTINO ---
+        function configurarAutocompletarDestino() {
+            const input = document.getElementById('destino');
+            const suggestionsContainer = document.getElementById('destino-suggestions');
             let timeout = null;
 
             input.addEventListener('input', function() {
@@ -95,17 +151,10 @@
                     return;
                 }
 
-                // Esperar 400ms después de que el usuario deje de escribir para no saturar el servidor gratuito
                 timeout = setTimeout(() => {
-                    // Consultar la API gratuita de OpenStreetMap (Nominatim)
-                    // Filtramos por el Bounding Box de San Juan de los Morros y limitamos a Venezuela (ve)
                     const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&viewbox=${bboxSanJuan}&bounded=1&countrycodes=ve&limit=5`;
 
-                    fetch(url, {
-                        headers: {
-                            'Accept-Language': 'es' // Forzar nombres en español
-                        }
-                    })
+                    fetch(url, { headers: { 'Accept-Language': 'es' } })
                     .then(response => response.json())
                     .then(data => {
                         suggestionsContainer.innerHTML = '';
@@ -115,7 +164,6 @@
                         }
 
                         data.forEach(item => {
-                            // Limpiar un poco el nombre para que no salga una dirección gigante e ilegible
                             let nombreLimpio = item.display_name.split(',').slice(0, 3).join(',');
 
                             const div = document.createElement('div');
@@ -131,11 +179,10 @@
                         });
                         suggestionsContainer.style.display = 'block';
                     })
-                    .catch(err => console.error("Error al buscar dirección: ", err));
+                    .catch(err => console.error("Error al buscar destino: ", err));
                 }, 400);
             });
 
-            // Cerrar las sugerencias si el usuario hace clic fuera del buscador
             document.addEventListener('click', function(e) {
                 if (e.target !== input && e.target !== suggestionsContainer) {
                     suggestionsContainer.style.display = 'none';
@@ -143,20 +190,22 @@
             });
         }
 
-        // Inicializar el autocompletar para origen y destino
-        configurarAutocompletar('origen', 'origen-suggestions');
-        configurarAutocompletar('destino', 'destino-suggestions');
+        configurarAutocompletarDestino();
 
         // Alertas de estado
         const params = new URLSearchParams(window.location.search);
         const status = params.get('status');
         const container = document.getElementById('status-container');
         if (status === 'success') {
-            container.innerHTML = '<div class="status success">¡Viaje solicitado con éxito! Esperando conductor...</div>';
+            const successDiv = document.createElement('div');
+            successDiv.className = 'status success';
+            successDiv.textContent = '¡Viaje solicitado con éxito! Esperando conductor...';
+            container.appendChild(successDiv);
         } else if (status === 'limite_monto') {
-            container.innerHTML = '<div class="status error">El monto debe estar entre 1.000 Bs. y 10.000 Bs.</div>';
-        } else if (status === 'error') {
-            container.innerHTML = '<div class="status error">Hubo un error al procesar tu solicitud.</div>';
+            const errDiv = document.createElement('div');
+            errDiv.className = 'status error';
+            errDiv.textContent = 'El monto debe estar entre 1.000 Bs. y 10.000 Bs.';
+            container.appendChild(errDiv);
         }
     </script>
 </body>
