@@ -5,17 +5,9 @@ import os
 from werkzeug.security import generate_password_hash, check_password_hash
 
 app = Flask(__name__)
-# Clave secreta robusta para cifrar las cookies de sesión
 app.secret_key = os.environ.get('SECRET_KEY', 'martillos_seguridad_extrema_2026_jwt_token')
 
-# En Render, usamos una ruta persistente para que la base de datos no se borre al reiniciar
-# Si no estamos en Render, usa la ruta local por defecto
-DB_PATH = os.environ.get('DATABASE_URL', 'database.db')
-if DB_PATH.startswith("postgres://"):
-    # Si en el futuro escalas a Postgres, pero por ahora mantendremos SQLite en archivo
-    pass
-else:
-    DB_PATH = 'database.db'
+DB_PATH = 'database.db'
 
 def init_db():
     conn = sqlite3.connect(DB_PATH)
@@ -60,9 +52,9 @@ def init_db():
             monto REAL NOT NULL,
             telefono_origen TEXT NOT NULL,
             banco_origen TEXT NOT NULL,
-            referencia TEXT UNIQUE NOT NULL, -- UNIQUE evita duplicación y fraudes
+            referencia TEXT UNIQUE NOT NULL,
             fecha_registro TEXT NOT NULL,
-            estado TEXT DEFAULT 'Pendiente', -- 'Pendiente', 'Aprobado', 'Rechazado'
+            estado TEXT DEFAULT 'Pendiente',
             FOREIGN KEY(usuario_id) REFERENCES usuarios(id)
         )
     ''')
@@ -91,10 +83,7 @@ def init_db():
     conn.commit()
     conn.close()
 
-# Inicializar DB al arrancar la app
 init_db()
-
-# ==================== HELPERS DE SEGURIDAD ====================
 
 def get_config():
     conn = sqlite3.connect(DB_PATH)
@@ -112,8 +101,6 @@ def verificar_autenticacion(rol_requerido):
     if session.get('rol') != rol_requerido:
         return False
     return True
-
-# ==================== VISTAS PÚBLICAS Y LOGIN ====================
 
 @app.route('/')
 def index():
@@ -175,8 +162,6 @@ def registro_pasajero():
             
     return render_template('registro_pasajero.html')
 
-# ==================== RUTA PASAJERO ====================
-
 @app.route('/pasajero')
 def pasajero():
     if not verificar_autenticacion('pasajero'): 
@@ -193,8 +178,6 @@ def pasajero():
     
     return render_template('pasajero.html', saldo=saldo_real, nombre=nombre_real)
 
-# ==================== CONTROLES DE VIAJES Y SALDO ====================
-
 @app.route('/solicitar_viaje', methods=['POST'])
 def solicitar_viaje():
     if not verificar_autenticacion('pasajero'): 
@@ -210,7 +193,6 @@ def solicitar_viaje():
     cursor.execute("SELECT saldo FROM usuarios WHERE id = ?", (usuario_id,))
     saldo_actual = cursor.fetchone()[0]
     
-    # Bloqueo estricto si no tiene al menos $1.00 de saldo inicial para un viaje
     TARIFA_MINIMA_VIAJE = 1.00
     if saldo_actual < TARIFA_MINIMA_VIAJE:
         conn.close()
@@ -225,8 +207,6 @@ def solicitar_viaje():
         
     conn.close()
     return redirect('/pasajero?status=error')
-
-# ==================== PAGO MÓVIL Y LÍMITES ====================
 
 @app.route('/pasajero/recargar', methods=['POST'])
 def pasajero_recargar():
@@ -245,7 +225,6 @@ def pasajero_recargar():
     except (ValueError, TypeError):
         return redirect('/pasajero?status=monto_invalido')
         
-    # VALIDACIONES DE RANGOS REQUERIDOS
     if monto < 1.00:
         return redirect('/pasajero?status=recarga_muy_baja')
     if monto > 20.00:
@@ -268,9 +247,7 @@ def pasajero_recargar():
         return redirect('/pasajero?status=pago_reportado')
         
     except sqlite3.IntegrityError:
-        return "<h3>Error de Seguridad: Referencia repetida.</h3><p>Este pago ya fue reportado previamente.</p><a href='/pasajero'>Volver</a>"
-
-# ==================== PANEL ADMINISTRADOR (PROTEGIDO) ====================
+        return "<h3>Error: Referencia repetida.</h3><p>Este pago ya fue reportado previamente.</p><a href='/pasajero'>Volver</a>"
 
 @app.route('/admin_historial')
 def admin_historial():
@@ -286,14 +263,12 @@ def admin_historial():
     ''')
     viajes = cursor.fetchall()
     
-    # Conteos de flota y usuarios
     cursor.execute("SELECT COUNT(*) FROM usuarios WHERE rol = 'pasajero'")
     total_pasajeros = cursor.fetchone()[0]
     
     cursor.execute("SELECT COUNT(*) FROM usuarios WHERE rol = 'conductor'")
     total_conductores = cursor.fetchone()[0]
     
-    # Cargar pagos móviles pendientes
     cursor.execute('''
         SELECT pagos.id, usuarios.nombre, pagos.monto, pagos.referencia, pagos.estado 
         FROM pagos JOIN usuarios ON pagos.usuario_id = usuarios.id 
@@ -365,8 +340,6 @@ def admin_procesar_pago(pago_id, accion):
     conn.close()
     return redirect('/admin_historial?status=pago_procesado_ok')
 
-# ==================== RUTA CONDUCTOR ====================
-
 @app.route('/conductor')
 def conductor():
     if not verificar_autenticacion('conductor'): 
@@ -379,6 +352,5 @@ def logout():
     return redirect('/login')
 
 if __name__ == '__main__':
-    # Render asigna el puerto mediante variable de entorno PORT, por defecto el 5000
     port = int(os.environ.get('PORT', 5000))
     app.run(host='0.0.0.0', port=port, debug=False)
