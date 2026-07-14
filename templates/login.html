@@ -33,49 +33,50 @@
             transition: opacity 0.8s ease;
         }
 
-        /* Contenedor adaptativo con el DOBLE de tamaño máximo */
+        /* SIN LÍMITES DE RECUADRO: Sin bordes, sin fondos, totalmente invisible */
         .video-wrapper {
             position: relative;
-            max-width: 95%;      /* Permite expandirse casi al ancho completo si es necesario */
-            width: 960px;        /* Duplicado el tamaño objetivo (antes era 480px) */
-            max-height: 85vh;    /* Duplicado el rango de altura para aprovechar la pantalla */
+            max-width: 95%;      
+            width: 960px;        /* Mantiene el tamaño grande objetivo */
+            max-height: 85vh;    
             display: flex;
             justify-content: center;
             align-items: center;
-            background: #111;
-            border: 3px solid #ffeb3b; /* Borde un poco más grueso para acompañar el nuevo tamaño */
-            border-radius: 16px;
-            overflow: hidden;
-            box-shadow: 0 0 40px rgba(255, 235, 59, 0.4);
+            background: transparent; /* Eliminado el fondo gris */
+            border: none;            /* Eliminado el borde amarillo restrictivo */
+            box-shadow: none;        /* Eliminada la sombra */
+            overflow: visible;
         }
 
-        /* Ajuste del video para que llene el nuevo espacio sin recortarse */
+        /* El video ahora fluye libremente mostrando su forma nativa exacta y completa */
         #splash-screen video {
             max-width: 100%;
             max-height: 85vh;
             width: auto;
             height: auto;
             display: block;
+            border-radius: 8px; /* Un ligero redondeado en las esquinas del propio video para estética */
         }
 
-        /* Capa de Play Inicial */
+        /* Capa de Play Inicial: Ahora se acopla perfectamente a los bordes reales del video */
         #play-overlay {
             position: absolute;
             top: 0;
             left: 0;
             width: 100%;
             height: 100%;
-            background: rgba(0, 0, 0, 0.85);
+            background: rgba(0, 0, 0, 0.75);
             display: flex;
             flex-direction: column;
             justify-content: center;
             align-items: center;
             z-index: 2;
             cursor: pointer;
+            border-radius: 8px;
         }
 
         .play-button-icon {
-            width: 90px; /* Botón de play ligeramente más grande para el nuevo diseño */
+            width: 90px;
             height: 90px;
             background: #ffeb3b;
             border-radius: 50%;
@@ -129,7 +130,6 @@
             box-shadow: 0 0 20px rgba(255, 235, 59, 0.15);
         }
         
-        /* Imagen Principal Dinámica */
         .logo-img {
             max-width: 120px;
             margin-bottom: 15px;
@@ -166,7 +166,7 @@
 </head>
 <body>
 
-    <!-- PANTALLA DE INTRO (VIDEO DUPLICADO EN TAMAÑO ADAPTABLE CON AUDIO) -->
+    <!-- PANTALLA DE INTRO (VIDEO LIBRE SIN CONTENEDOR RESTRICTIVO CON AUDIO) -->
     {% if config.video %}
     <div id="splash-screen">
         <div class="video-wrapper">
