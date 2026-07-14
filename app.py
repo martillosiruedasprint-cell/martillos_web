@@ -13,7 +13,7 @@ def init_db():
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
     
-    # 1. Tabla de Usuarios (Sin saldo)
+    # 1. Tabla de Usuarios
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS usuarios (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -30,13 +30,14 @@ def init_db():
         )
     ''')
     
-    # 2. Tabla de Viajes
+    # 2. Tabla de Viajes (Con monto en Bs.)
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS viajes (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             pasajero_id INTEGER NOT NULL,
             origen TEXT NOT NULL,
             destino TEXT NOT NULL,
+            monto REAL NOT NULL,
             fecha TEXT NOT NULL,
             estado TEXT DEFAULT 'Pendiente',
             FOREIGN KEY(pasajero_id) REFERENCES usuarios(id)
@@ -143,13 +144,23 @@ def solicitar_viaje():
     usuario_id = session['user_id']
     origen = request.form.get('origen')
     destino = request.form.get('destino')
+    monto_raw = request.form.get('monto')
     fecha = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+    
+    try:
+        monto = float(monto_raw)
+    except (TypeError, ValueError):
+        return redirect('/pasajero?status=error_monto')
+    
+    # Validación del rango en Bs.
+    if monto < 1000 or monto > 10000:
+        return redirect('/pasajero?status=limite_monto')
     
     if origen and destino:
         conn = sqlite3.connect(DB_PATH)
         cursor = conn.cursor()
-        cursor.execute('INSERT INTO viajes (pasajero_id, origen, destino, fecha) VALUES (?, ?, ?, ?)', 
-                       (usuario_id, origen, destino, fecha))
+        cursor.execute('INSERT INTO viajes (pasajero_id, origen, destino, monto, fecha) VALUES (?, ?, ?, ?, ?)', 
+                       (usuario_id, origen, destino, monto, fecha))
         conn.commit()
         conn.close()
         return redirect('/pasajero?status=success')
@@ -164,14 +175,13 @@ def admin_historial():
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
     
-    # Historial de viajes
+    # Historial de viajes con montos en Bs.
     cursor.execute('''
-        SELECT viajes.id, usuarios.nombre, viajes.origen, viajes.destino, viajes.fecha, viajes.estado 
+        SELECT viajes.id, usuarios.nombre, viajes.origen, viajes.destino, viajes.monto, viajes.fecha, viajes.estado 
         FROM viajes JOIN usuarios ON viajes.pasajero_id = usuarios.id ORDER BY viajes.id DESC
     ''')
     viajes = cursor.fetchall()
     
-    # Contadores
     cursor.execute("SELECT COUNT(*) FROM usuarios WHERE rol = 'pasajero'")
     total_pasajeros = cursor.fetchone()[0]
     
@@ -214,7 +224,19 @@ def crear_conductor():
 def conductor():
     if not verificar_autenticacion('conductor'): 
         return redirect('/login')
-    return render_template('conductor.html', driver_name=session.get('nombre'))
+    
+    # En la prueba de campo, el conductor lee los viajes pendientes desde la DB
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+    cursor.execute('''
+        SELECT viajes.id, usuarios.nombre, viajes.origen, viajes.destino, viajes.monto, viajes.fecha, viajes.estado 
+        FROM viajes JOIN usuarios ON viajes.pasajero_id = usuarios.id 
+        WHERE viajes.estado = 'Pendiente' ORDER BY viajes.id DESC
+    ''')
+    viajes_pendientes = cursor.fetchall()
+    conn.close()
+    
+    return render_template('conductor.html', driver_name=session.get('nombre'), viajes=viajes_pendientes)
 
 @app.route('/logout')
 def logout():
