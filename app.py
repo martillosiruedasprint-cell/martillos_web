@@ -24,18 +24,15 @@ def init_db():
     conn.commit()
     conn.close()
 
-# Inicializar base de datos al arrancar
 init_db()
 
 @app.route('/')
 @app.route('/pasajero')
 def pasajero():
-    # Esta ruta cargará la vista para solicitar viajes
     return render_template('pasajero.html')
 
 @app.route('/admin_historial')
 def admin_historial():
-    # Esta ruta cargará el historial de administración
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
     cursor.execute('SELECT * FROM viajes ORDER BY id DESC')
@@ -60,6 +57,44 @@ def solicitar_viaje():
         return redirect('/pasajero?status=success')
     
     return redirect('/pasajero?status=error')
+
+# ==================== NUEVAS RUTAS PARA EL CONDUCTOR ====================
+
+@app.route('/conductor')
+def conductor():
+    # Carga la interfaz visual del conductor
+    return render_template('conductor.html')
+
+@app.route('/api/viaje_pendiente')
+def viaje_pendiente():
+    # El navegador del conductor consultará esta ruta cada 4 segundos buscando viajes 'Pendientes'
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+    cursor.execute("SELECT id, pasajero, origen, destino FROM viajes WHERE estado = 'Pendiente' ORDER BY id DESC LIMIT 1")
+    viaje = cursor.fetchone()
+    conn.close()
+    
+    if viaje:
+        return jsonify({
+            "encontrado": True,
+            "id": viaje[0],
+            "pasajero": viaje[1],
+            "origen": viaje[2],
+            "destino": viaje[3]
+        })
+    return jsonify({"encontrado": False})
+
+@app.route('/api/aceptar_viaje', methods=['POST'])
+def aceptar_viaje():
+    viaje_id = request.json.get('id')
+    if viaje_id:
+        conn = sqlite3.connect(DB_PATH)
+        cursor = conn.cursor()
+        cursor.execute("UPDATE viajes SET estado = 'Aceptado' WHERE id = ?", (viaje_id,))
+        conn.commit()
+        conn.close()
+        return jsonify({"success": True})
+    return jsonify({"success": False})
 
 if __name__ == '__main__':
     app.run()
