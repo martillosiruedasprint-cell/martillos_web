@@ -5,89 +5,50 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Pasajero | Martillos & Ruedas</title>
     <style>
-        body { background: #000; color: #fff; font-family: sans-serif; padding: 20px; margin: 0; }
+        body { background-color: #0b0b0b; color: #ffffff; font-family: sans-serif; padding: 25px; }
         h1, h2, h3 { color: #ffeb3b; }
-        .grid { display: flex; flex-wrap: wrap; gap: 20px; }
-        .card { background: #111; border: 1px solid #333; padding: 20px; border-radius: 8px; flex: 1; min-width: 290px; }
-        .input-field { width: 100%; padding: 10px; margin: 8px 0; background: #222; border: 1px solid #444; color: #fff; border-radius: 6px; box-sizing: border-box; }
-        .btn { width: 100%; padding: 12px; background: #ffeb3b; color: #000; border: none; font-weight: bold; font-size: 16px; cursor: pointer; border-radius: 6px; margin-top: 10px; }
-        .btn-logout { float: right; background: #ff3b30; color:#fff; text-decoration:none; padding:8px 15px; border-radius:4px; font-size:14px; font-weight:bold; }
-        .instrucciones { background: #1a1a1a; padding: 12px; border-left: 4px solid #ffeb3b; border-radius: 4px; font-size: 13px; color: #ccc; margin-bottom: 15px; }
+        .container { max-width: 600px; margin: 0 auto; }
+        .card { background: #161616; border: 1px solid #333; padding: 25px; border-radius: 10px; margin-bottom: 25px; box-shadow: 0 4px 6px rgba(0,0,0,0.3); }
+        .input-field { width: 100%; padding: 12px; margin: 8px 0 16px 0; background: #222; border: 1px solid #444; color: #fff; border-radius: 6px; box-sizing: border-box; }
+        .input-field:focus { border-color: #ffeb3b; outline: none; }
+        .btn { padding: 14px 20px; background: #ffeb3b; color: #000; border: none; font-weight: bold; cursor: pointer; border-radius: 6px; width: 100%; font-size: 16px; }
+        .btn:hover { background: #fbc02d; }
+        .btn-logout { float: right; background: #ff3b30; color:#fff; text-decoration:none; padding:10px 20px; border-radius:6px; font-weight:bold; }
+        .status { padding: 12px; margin-bottom: 20px; border-radius: 6px; text-align: center; font-weight: bold; }
+        .status.success { background: #4cd964; color: #000; }
+        .status.error { background: #ff3b30; color: #fff; }
     </style>
 </head>
 <body>
+    <div class="container">
+        <a href="/logout" class="btn-logout">Salir de la Cuenta</a>
+        <h1>Hola, {{ nombre }}</h1>
 
-    <a href="/logout" class="btn-logout">Cerrar Sesión</a>
-    <h1>Panel del Pasajero</h1>
-    <p>Bienvenido de nuevo a Martillos & Ruedas.</p>
+        <!-- Notificaciones de Estado -->
+        <div id="status-container"></div>
 
-    <!-- Notificaciones de estado de la URL -->
-    <div id="notificacion" style="display:none; padding:12px; background:#222; border:1px solid #ffeb3b; border-radius:6px; margin-bottom:15px; font-weight:bold; color:#ffeb3b;"></div>
-
-    <div class="grid">
         <!-- SOLICITAR VIAJE -->
         <div class="card">
             <h3>🚖 Solicitar Nuevo Viaje</h3>
+            <p style="color: #aaa; font-size: 14px; margin-top: 0;">Escribe tus puntos de origen y destino para enviarle la solicitud a la flota activa.</p>
             <form action="/solicitar_viaje" method="POST">
-                Punto de Origen:<br>
-                <input type="text" name="origen" placeholder="Ej. Terminal de San Juan" required class="input-field">
-                Punto de Destino:<br>
-                <input type="text" name="destino" placeholder="Ej. Plaza Bolívar" required class="input-field">
-                <button type="submit" class="btn">Pedir MotoAhora</button>
-            </form>
-        </div>
-
-        <!-- RECARGAS POR PAGO MÓVIL -->
-        <div class="card" style="border-color: #ffeb3b;">
-            <h3>💳 Recargar Saldo (Pago Móvil)</h3>
-            
-            <div class="instrucciones">
-                <strong>Datos de Pago Móvil:</strong><br>
-                • <strong>Banco:</strong> Banesco (0134)<br>
-                • <strong>Teléfono:</strong> 0412-1234567<br>
-                • <strong>RIF:</strong> V-12345678-9
-            </div>
-
-            <form action="/pasajero/recargar" method="POST">
-                Monto en Divisas / Bs. Equivalente:<br>
-                <input type="number" step="0.01" name="monto" placeholder="Ej. 5.00" required class="input-field">
-                
-                Banco de Origen:<br>
-                <select name="banco_origen" class="input-field" style="height:40px;">
-                    <option value="Banesco">Banesco</option>
-                    <option value="Banco de Venezuela">Banco de Venezuela</option>
-                    <option value="Mercantil">Mercantil</option>
-                    <option value="Provincial">Provincial</option>
-                    <option value="Otros">Otros Bancos</option>
-                </select>
-
-                Teléfono desde donde envió:<br>
-                <input type="text" name="telefono_origen" placeholder="Ej. 0414-7654321" required class="input-field">
-
-                Número de Referencia (Últimos 6 dígitos):<br>
-                <input type="text" name="referencia" placeholder="Ej. 987654" required class="input-field">
-
-                <button type="submit" class="btn" style="background:#fff; color:#000;">REPORTAR RECARGA</button>
+                Dirección de Origen:<br>
+                <input type="text" name="origen" required class="input-field" placeholder="Ej: Av. Bolívar frente al banco"><br>
+                Dirección de Destino:<br>
+                <input type="text" name="destino" required class="input-field" placeholder="Ej: CC Los Llanos"><br>
+                <button type="submit" class="btn">Pedir Moto Ahora</button>
             </form>
         </div>
     </div>
 
     <script>
-        // Manejador de notificaciones visuales sencillas
-        const urlParams = new URLSearchParams(window.location.search);
-        const status = urlParams.get('status');
-        const notiDiv = document.getElementById('notificacion');
-
-        if (status === 'pago_reportado') {
-            notiDiv.innerText = "✓ ¡Pago reportado con éxito! Se acreditará en tu saldo una vez que el administrador verifique la transacción.";
-            notiDiv.style.display = 'block';
-        } else if (status === 'monto_invalido') {
-            notiDiv.innerText = "✗ El monto ingresado debe ser mayor a 0.";
-            notiDiv.style.color = '#ff3b30';
-            notiDiv.style.display = 'block';
-        } else if (status === 'success') {
-            notiDiv.innerText = "✓ Tu solicitud de viaje está en curso. Buscando un conductor cercano...";
-            notiDiv.style.display = 'block';
+        const params = new URLSearchParams(window.location.search);
+        const status = params.get('status');
+        const container = document.getElementById('status-container');
+        if (status === 'success') {
+            container.innerHTML = '<div class="status success">¡Viaje solicitado con éxito! Esperando conductor...</div>';
+        } else if (status === 'error') {
+            container.innerHTML = '<div class="status error">Hubo un error al procesar tu solicitud. Intenta de nuevo.</div>';
         }
     </script>
 </body>
