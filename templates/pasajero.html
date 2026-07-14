@@ -5,239 +5,89 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Pasajero | Martillos & Ruedas</title>
     <style>
-        body { 
-            display: flex; 
-            flex-direction: column; 
-            justify-content: center; 
-            align-items: center; 
-            height: 100vh; 
-            background-color: #000; 
-            margin: 0; 
-            font-family: sans-serif; 
-            color: #fff; 
-        }
-        
-        /* Tarjeta de perfil en esquina */
-        .perfil-info { 
-            position: absolute; 
-            top: 15px; 
-            left: 15px; 
-            background: #111; 
-            padding: 12px; 
-            border-radius: 8px; 
-            border: 1px solid #333; 
-            font-size: 14px; 
-        }
-        .perfil-info b { 
-            color: #ffeb3b; 
-        }
-        
-        .boton-gigante { 
-            background-color: #ffeb3b; 
-            color: #000; 
-            border: none; 
-            border-radius: 50%; 
-            width: 250px; 
-            height: 250px; 
-            font-size: 24px; 
-            font-weight: bold; 
-            cursor: pointer; 
-            box-shadow: 0 0 20px rgba(255, 235, 59, 0.5); 
-            transition: 0.2s; 
-            text-transform: uppercase; 
-            margin-bottom: 20px; 
-        }
-        .boton-gigante:active { 
-            transform: scale(0.95); 
-        }
-
-        /* Contenedor del Buscador de Destino */
-        .buscador-contenedor { 
-            display: none; 
-            background: #111; 
-            border: 2px solid #ffeb3b; 
-            padding: 20px; 
-            border-radius: 12px; 
-            width: 90%; 
-            max-width: 400px; 
-            box-shadow: 0 0 20px rgba(255,235,59,0.2); 
-            box-sizing: border-box; 
-        }
-        .buscador-contenedor h3 { 
-            margin: 0 0 10px 0; 
-            color: #ffeb3b; 
-            text-align: center; 
-        }
-        
-        .input-busqueda { 
-            width: 100%; 
-            padding: 12px; 
-            background: #222; 
-            border: 1px solid #444; 
-            color: #fff; 
-            border-radius: 6px; 
-            font-size: 16px; 
-            box-sizing: border-box; 
-        }
-        .input-busqueda:focus { 
-            border-color: #ffeb3b; 
-            outline: none; 
-        }
-
-        /* Lista de sugerencias desplegable */
-        .sugerencias-lista { 
-            background: #222; 
-            border: 1px solid #444; 
-            border-radius: 6px; 
-            max-height: 200px; 
-            overflow-y: auto; 
-            margin-top: 5px; 
-            padding: 0; 
-            list-style: none; 
-            display: none; 
-        }
-        .sugerencias-lista li { 
-            padding: 10px 15px; 
-            cursor: pointer; 
-            border-bottom: 1px solid #333; 
-            font-size: 14px; 
-            color: #ddd; 
-        }
-        .sugerencias-lista li:hover { 
-            background: #ffeb3b; 
-            color: #000; 
-        }
-
-        .btn-cancelar { 
-            background: transparent; 
-            color: #aaa; 
-            border: none; 
-            margin-top: 10px; 
-            cursor: pointer; 
-            width: 100%; 
-            text-align: center; 
-            font-size: 14px; 
-        }
-        
-        .btn-cerrar-sesion {
-            display: inline-block;
-            margin-top: 8px;
-            color: #ff3b30;
-            text-decoration: none;
-            font-size: 12px;
-        }
+        body { background: #000; color: #fff; font-family: sans-serif; padding: 20px; margin: 0; }
+        h1, h2, h3 { color: #ffeb3b; }
+        .grid { display: flex; flex-wrap: wrap; gap: 20px; }
+        .card { background: #111; border: 1px solid #333; padding: 20px; border-radius: 8px; flex: 1; min-width: 290px; }
+        .input-field { width: 100%; padding: 10px; margin: 8px 0; background: #222; border: 1px solid #444; color: #fff; border-radius: 6px; box-sizing: border-box; }
+        .btn { width: 100%; padding: 12px; background: #ffeb3b; color: #000; border: none; font-weight: bold; font-size: 16px; cursor: pointer; border-radius: 6px; margin-top: 10px; }
+        .btn-logout { float: right; background: #ff3b30; color:#fff; text-decoration:none; padding:8px 15px; border-radius:4px; font-size:14px; font-weight:bold; }
+        .instrucciones { background: #1a1a1a; padding: 12px; border-left: 4px solid #ffeb3b; border-radius: 4px; font-size: 13px; color: #ccc; margin-bottom: 15px; }
     </style>
 </head>
 <body>
-    <div class="perfil-info">
-        Usuario: <b>{{ session.get('nombre', 'Invitado') }}</b><br>
-        Saldo: <b>${{ "%.2f"|format(session.get('saldo', 0.0)) }}</b><br>
-        <a href="/logout" class="btn-cerrar-sesion">Cerrar Sesión</a>
-    </div>
 
-    <!-- Botón Gigante Inicial -->
-    <button id="btnPedir" class="boton-gigante" onclick="mostrarBuscador()">
-        PEDIR<br>MOTO
-    </button>
+    <a href="/logout" class="btn-logout">Cerrar Sesión</a>
+    <h1>Panel del Pasajero</h1>
+    <p>Bienvenido de nuevo a Martillos & Ruedas.</p>
 
-    <!-- Caja de Búsqueda Interactiva con Sugerencias -->
-    <div id="buscadorViaje" class="buscador-contenedor">
-        <h3>¿A dónde te diriges?</h3>
-        <input type="text" id="inputDestino" class="input-busqueda" placeholder="Ej: Plaza Bolívar, Sendrea, Los Laureles..." oninput="buscarDirecciones(this.value)" autocomplete="off">
-        <ul id="listaSugerencias" class="sugerencias-lista"></ul>
-        <button class="btn-cancelar" onclick="ocultarBuscador()">Cancelar</button>
+    <!-- Notificaciones de estado de la URL -->
+    <div id="notificacion" style="display:none; padding:12px; background:#222; border:1px solid #ffeb3b; border-radius:6px; margin-bottom:15px; font-weight:bold; color:#ffeb3b;"></div>
+
+    <div class="grid">
+        <!-- SOLICITAR VIAJE -->
+        <div class="card">
+            <h3>🚖 Solicitar Nuevo Viaje</h3>
+            <form action="/solicitar_viaje" method="POST">
+                Punto de Origen:<br>
+                <input type="text" name="origen" placeholder="Ej. Terminal de San Juan" required class="input-field">
+                Punto de Destino:<br>
+                <input type="text" name="destino" placeholder="Ej. Plaza Bolívar" required class="input-field">
+                <button type="submit" class="btn">Pedir MotoAhora</button>
+            </form>
+        </div>
+
+        <!-- RECARGAS POR PAGO MÓVIL -->
+        <div class="card" style="border-color: #ffeb3b;">
+            <h3>💳 Recargar Saldo (Pago Móvil)</h3>
+            
+            <div class="instrucciones">
+                <strong>Datos de Pago Móvil:</strong><br>
+                • <strong>Banco:</strong> Banesco (0134)<br>
+                • <strong>Teléfono:</strong> 0412-1234567<br>
+                • <strong>RIF:</strong> V-12345678-9
+            </div>
+
+            <form action="/pasajero/recargar" method="POST">
+                Monto en Divisas / Bs. Equivalente:<br>
+                <input type="number" step="0.01" name="monto" placeholder="Ej. 5.00" required class="input-field">
+                
+                Banco de Origen:<br>
+                <select name="banco_origen" class="input-field" style="height:40px;">
+                    <option value="Banesco">Banesco</option>
+                    <option value="Banco de Venezuela">Banco de Venezuela</option>
+                    <option value="Mercantil">Mercantil</option>
+                    <option value="Provincial">Provincial</option>
+                    <option value="Otros">Otros Bancos</option>
+                </select>
+
+                Teléfono desde donde envió:<br>
+                <input type="text" name="telefono_origen" placeholder="Ej. 0414-7654321" required class="input-field">
+
+                Número de Referencia (Últimos 6 dígitos):<br>
+                <input type="text" name="referencia" placeholder="Ej. 987654" required class="input-field">
+
+                <button type="submit" class="btn" style="background:#fff; color:#000;">REPORTAR RECARGA</button>
+            </form>
+        </div>
     </div>
 
     <script>
-        let timeoutBusqueda = null;
+        // Manejador de notificaciones visuales sencillas
+        const urlParams = new URLSearchParams(window.location.search);
+        const status = urlParams.get('status');
+        const notiDiv = document.getElementById('notificacion');
 
-        function mostrarBuscador() {
-            document.getElementById('btnPedir').style.display = 'none';
-            document.getElementById('buscadorViaje').style.display = 'block';
-            document.getElementById('inputDestino').focus();
-        }
-
-        function ocultarBuscador() {
-            document.getElementById('buscadorViaje').style.display = 'none';
-            document.getElementById('btnPedir').style.display = 'block';
-            document.getElementById('inputDestino').value = '';
-            document.getElementById('listaSugerencias').style.display = 'none';
-        }
-
-        // Busca direcciones restringiendo los resultados estrictamente a San Juan de los Morros
-        function buscarDirecciones(texto) {
-            clearTimeout(timeoutBusqueda);
-            const lista = document.getElementById('listaSugerencias');
-            
-            if (!texto || texto.trim().length < 3) {
-                lista.innerHTML = '';
-                lista.style.display = 'none';
-                return;
-            }
-
-            timeoutBusqueda = setTimeout(() => {
-                // Cuadrante de coordenadas límite (Bounding Box) exclusivo para San Juan de los Morros
-                // viewbox=-67.394,9.940,-67.310,9.880 & bounded=1 restringe la búsqueda a este perímetro.
-                const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(texto)}&countrycodes=ve&viewbox=-67.394,9.940,-67.310,9.880&bounded=1&limit=5`;
-
-                fetch(url, {
-                    headers: { 'Accept-Language': 'es' }
-                })
-                .then(res => res.json())
-                .then(data => {
-                    lista.innerHTML = '';
-                    if (data.length > 0) {
-                        data.forEach(item => {
-                            const li = document.createElement('li');
-                            
-                            // Simplificamos la dirección quitando el resto de Venezuela para que sea legible y corto
-                            let nombreCorto = item.display_name.split(', Municipio')[0];
-                            
-                            li.innerText = nombreCorto;
-                            li.onclick = () => seleccionarDestino(nombreCorto);
-                            lista.appendChild(li);
-                        });
-                        lista.style.display = 'block';
-                    } else {
-                        lista.style.display = 'none';
-                    }
-                })
-                .catch(err => console.error("Error al buscar direcciones:", err));
-            }, 400);
-        }
-
-        // Ejecuta el envío automático del viaje con los datos dinámicos
-        function seleccionarDestino(direccionCompleta) {
-            document.getElementById('inputDestino').value = direccionCompleta;
-            document.getElementById('listaSugerencias').style.display = 'none';
-
-            // Creamos el formulario virtual POST
-            const form = document.createElement('form');
-            form.method = 'POST';
-            form.action = '/solicitar_viaje';
-
-            const inputPasajero = document.createElement('input');
-            inputPasajero.type = 'hidden';
-            inputPasajero.name = 'pasajero';
-            // Toma dinámicamente el nombre del usuario de la sesión actual
-            inputPasajero.value = "{{ session.get('nombre', 'Pasajero') }}"; 
-            form.appendChild(inputPasajero);
-
-            const inputOrigen = document.createElement('input');
-            inputOrigen.type = 'hidden';
-            inputOrigen.name = 'origen';
-            inputOrigen.value = "San Juan de los Morros"; // Dirección base de origen local
-            form.appendChild(inputOrigen);
-
-            const inputDestino = document.createElement('input');
-            inputDestino.type = 'hidden';
-            inputDestino.name = 'destino';
-            inputDestino.value = direccionCompleta;
-            form.appendChild(inputDestino);
-
-            document.body.appendChild(form);
-            alert("¡Buscando conductor cercano!\nDestino: " + direccionCompleta);
-            form.submit();
+        if (status === 'pago_reportado') {
+            notiDiv.innerText = "✓ ¡Pago reportado con éxito! Se acreditará en tu saldo una vez que el administrador verifique la transacción.";
+            notiDiv.style.display = 'block';
+        } else if (status === 'monto_invalido') {
+            notiDiv.innerText = "✗ El monto ingresado debe ser mayor a 0.";
+            notiDiv.style.color = '#ff3b30';
+            notiDiv.style.display = 'block';
+        } else if (status === 'success') {
+            notiDiv.innerText = "✓ Tu solicitud de viaje está en curso. Buscando un conductor cercano...";
+            notiDiv.style.display = 'block';
         }
     </script>
 </body>
