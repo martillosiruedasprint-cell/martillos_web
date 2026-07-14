@@ -12,22 +12,27 @@ DB_PATH = 'database.db'
 UPLOAD_FOLDER = 'static/uploads'
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 
-# Asegurar que la carpeta de subidas exista
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
 def init_db():
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
     
-    # Tabla de Usuarios
+    # Tabla de Usuarios con Campos extendidos para Conductores y Pasajeros
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS usuarios (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             nombre TEXT NOT NULL,
+            apellido TEXT DEFAULT '',
+            cedula TEXT DEFAULT '',
+            fecha_nacimiento TEXT DEFAULT '',
             email TEXT UNIQUE NOT NULL,
             password TEXT NOT NULL,
             rol TEXT NOT NULL, -- 'pasajero', 'conductor', 'admin'
-            saldo REAL DEFAULT 0.0
+            saldo REAL DEFAULT 0.0,
+            placa TEXT DEFAULT '',
+            serial_motor TEXT DEFAULT '',
+            serial_carroceria TEXT DEFAULT ''
         )
     ''')
     
@@ -44,17 +49,16 @@ def init_db():
         )
     ''')
     
-    # Tabla de Configuración Global del Sistema (Tarifas y Multimedia)
+    # Tabla de Configuración Global
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS configuracion (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
-            tasa_comision REAL DEFAULT 9.0, -- Entre 6% y 9%
+            tasa_comision REAL DEFAULT 9.0,
             imagen_principal TEXT DEFAULT '',
             video_animacion TEXT DEFAULT ''
         )
     ''')
     
-    # Insertar configuración inicial por defecto si está vacía
     cursor.execute("SELECT COUNT(*) FROM configuracion")
     if cursor.fetchone()[0] == 0:
         cursor.execute("INSERT INTO configuracion (tasa_comision, imagen_principal, video_animacion) VALUES (9.0, '', '')")
@@ -71,7 +75,6 @@ def init_db():
 
 init_db()
 
-# Helper para obtener configuración
 def get_config():
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
@@ -135,7 +138,17 @@ def registro_pasajero():
         except sqlite3.IntegrityError:
             return "El correo ya está registrado. <a href='/registro_pasajero'>Intentar de nuevo</a>"
             
-    return render_template('registro_pasajero.html')
+    return '''
+        <body style="background:#000; color:#fff; font-family:sans-serif; display:flex; justify-content:center; align-items:center; height:100vh; margin:0;">
+            <form method="POST" style="background:#111; padding:30px; border-radius:10px; border:1px solid #ffeb3b; width:300px;">
+                <h2 style="color:#ffeb3b; text-align:center; margin-top:0;">Registro de Pasajero</h2>
+                Nombre Completo:<br><input type="text" name="nombre" required style="width:100%; padding:8px; margin:8px 0; background:#222; border:1px solid #444; color:#fff;"><br>
+                Correo Electrónico:<br><input type="email" name="email" required style="width:100%; padding:8px; margin:8px 0; background:#222; border:1px solid #444; color:#fff;"><br>
+                Contraseña:<br><input type="password" name="password" required style="width:100%; padding:8px; margin:8px 0; background:#222; border:1px solid #444; color:#fff;"><br><br>
+                <button type="submit" style="width:100%; padding:10px; background:#ffeb3b; color:#000; border:none; font-weight:bold; cursor:pointer;">REGISTRARME</button>
+            </form>
+        </body>
+    '''
 
 # ==================== CONTROLES EXCLUSIVOS DEL ADMINISTRADOR ====================
 
@@ -146,14 +159,12 @@ def admin_historial():
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
     
-    # 1. Obtener viajes
     cursor.execute('''
         SELECT viajes.id, usuarios.nombre, viajes.origen, viajes.destino, viajes.fecha, viajes.estado 
         FROM viajes JOIN usuarios ON viajes.pasajero_id = usuarios.id ORDER BY viajes.id DESC
     ''')
     viajes = cursor.fetchall()
     
-    # 2. Monitorear cantidad de usuarios registrados por Rol
     cursor.execute("SELECT COUNT(*) FROM usuarios WHERE rol = 'pasajero'")
     total_pasajeros = cursor.fetchone()[0]
     
@@ -168,15 +179,26 @@ def admin_historial():
 @app.route('/admin/crear_conductor', methods=['POST'])
 def crear_conductor():
     if session.get('rol') != 'admin': return redirect('/')
+    
     nombre = request.form.get('nombre')
+    apellido = request.form.get('apellido')
+    cedula = request.form.get('cedula')
+    fecha_nacimiento = request.form.get('fecha_nacimiento')
     email = request.form.get('email')
     password = request.form.get('password')
+    
+    placa = request.form.get('placa')
+    serial_motor = request.form.get('serial_motor')
+    serial_carroceria = request.form.get('serial_carroceria')
     
     hashed_pw = generate_password_hash(password)
     try:
         conn = sqlite3.connect(DB_PATH)
         cursor = conn.cursor()
-        cursor.execute("INSERT INTO usuarios (nombre, email, password, rol) VALUES (?, ?, ?, ?)", (nombre, email, hashed_pw, 'conductor'))
+        cursor.execute('''
+            INSERT INTO usuarios (nombre, apellido, cedula, fecha_nacimiento, email, password, rol, placa, serial_motor, serial_carroceria) 
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ''', (nombre, apellido, cedula, fecha_nacimiento, email, hashed_pw, 'conductor', placa, serial_motor, serial_carroceria))
         conn.commit()
         conn.close()
         return redirect('/admin_historial?status=conductor_creado')
@@ -187,8 +209,6 @@ def crear_conductor():
 def actualizar_tasa():
     if session.get('rol') != 'admin': return redirect('/')
     tasa = float(request.form.get('tasa'))
-    
-    # Forzar el límite estricto entre 6% y 9%
     if tasa < 6.0: tasa = 6.0
     if tasa > 9.0: tasa = 9.0
     
@@ -227,11 +247,6 @@ def subir_multimedia():
 @app.route('/pasajero')
 def pasajero():
     if session.get('rol') != 'pasajero': return redirect('/')
-    conn = sqlite3.connect(DB_PATH)
-    cursor = conn.cursor()
-    cursor.execute("SELECT saldo FROM usuarios WHERE id = ?", (session['user_id'],))
-    session['saldo'] = cursor.fetchone()[0]
-    conn.close()
     return render_template('pasajero.html')
 
 @app.route('/conductor')
