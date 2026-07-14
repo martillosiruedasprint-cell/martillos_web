@@ -1,12 +1,26 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html>
-<head><title>Panel Admin - Historial</title></head>
+<head>
+    <title>Panel Admin - Historial</title>
+</head>
 <body style="background:#000; color:#fff; font-family:sans-serif; padding:20px;">
     <h1>Historial de Viajes</h1>
-    <table border="1" width="100%" style="border-collapse:collapse; color:#fff;">
-        <tr><th>ID</th><th>Pasajero</th><th>Precio</th><th>Fecha</th></tr>
+    <table border="1" width="100%" style="border-collapse:collapse; color:#fff; text-align:center;">
+        <tr style="background:#222;">
+            <th style="padding:10px;">ID</th>
+            <th>Pasajero</th>
+            <th>Origen</th>
+            <th>Destino</th>
+            <th>Fecha</th>
+        </tr>
         {% for v in viajes %}
-        <tr><td>{{ v.id }}</td><td>{{ v.rider_id }}</td><td>${{ v.price }}</td><td>{{ v.date }}</td></tr>
+        <tr>
+            <td style="padding:8px;">{{ v[0] }}</td> <!-- ID -->
+            <td>{{ v[1] }}</td>                     <!-- Pasajero -->
+            <td>{{ v[2] }}</td>                     <!-- Origen -->
+            <td>{{ v[3] }}</td>                     <!-- Destino -->
+            <td>{{ v[4] }}</td>                     <!-- Fecha -->
+        </tr>
         {% endfor %}
     </table>
 </body>
