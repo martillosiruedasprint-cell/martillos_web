@@ -20,23 +20,25 @@
         .status.error { background: #ff3b30; color: #fff; }
         .status.info { background: #29b6f6; color: #000; }
         
+        /* Contenedor flotante para las sugerencias del buscador */
         .autocomplete-suggestions {
             position: absolute;
             background: #222;
             border: 1px solid #444;
             border-radius: 6px;
-            max-height: 200px;
+            max-height: 220px;
             overflow-y: auto;
-            width: calc(100% - 50px);
+            width: calc(100% - 2px);
             z-index: 999;
             box-shadow: 0 4px 8px rgba(0,0,0,0.5);
             display: none;
         }
         .suggestion-item {
-            padding: 10px 15px;
+            padding: 12px 15px;
             cursor: pointer;
             border-bottom: 1px solid #333;
             font-size: 14px;
+            text-align: left;
         }
         .suggestion-item:hover {
             background-color: #333;
@@ -50,7 +52,7 @@
         <h1>Hola, {{ nombre }}</h1>
 
         <div id="status-container">
-            <!-- Bloque de control de GPS -->
+            <!-- Mensaje inicial de control de GPS -->
             <div id="gps-status" class="status info">🔒 Se requiere permiso para acceder a tu ubicación. Esperando autorización...</div>
         </div>
 
@@ -63,29 +65,28 @@
             </p>
             
             <form action="/solicitar_viaje" method="POST" autocomplete="off" id="form-viaje">
-                <!-- Envíos automáticos ocultos al backend -->
+                <!-- Parámetros ocultos calculados de manera automática -->
                 <input type="hidden" id="origen" name="origen" value="Ubicación GPS no detectada">
                 <input type="hidden" name="monto" value="700">
                 
                 <div style="position: relative; margin-bottom: 12px;">
                     ¿A dónde vas? (Destino):
-                    <input type="text" id="destino" name="destino" required class="input-field" placeholder="Escribe tu destino en San Juan...">
+                    <input type="text" id="destino" name="destino" required class="input-field" placeholder="Ej: Plaza Bolívar, Los Samanes, Hospital...">
                     <div id="destino-suggestions" class="autocomplete-suggestions"></div>
                 </div>
                 
-                <!-- Deshabilitado por defecto hasta conceder permisos -->
+                <!-- El botón se activará sólo cuando el GPS responda exitosamente -->
                 <button type="submit" id="btn-pedir" class="btn" disabled>Activa el GPS para solicitar</button>
             </form>
         </div>
     </div>
 
     <script>
-        const bboxSanJuan = "-67.380,9.880,-67.320,9.930"; 
         const gpsStatusDiv = document.getElementById('gps-status');
         const btnPedir = document.getElementById('btn-pedir');
         const inputOrigenOculto = document.getElementById('origen');
 
-        // --- SISTEMA SOLICITUD DE PERMISOS GPS ---
+        // --- SOLICITUD Y TRADUCCIÓN DE GEOLOCALIZACIÓN (GPS) ---
         function solicitarUbicacion() {
             if (navigator.geolocation) {
                 gpsStatusDiv.innerHTML = "🛰️ Conectando con los satélites GPS del teléfono...";
@@ -95,61 +96,67 @@
                         const lat = position.coords.latitude;
                         const lon = position.coords.longitude;
 
-                        // Traducción de coordenadas a dirección legible
+                        // Consulta de geocodificación inversa (traducir coordenadas a nombre de calle)
                         const reverseUrl = `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&zoom=18&addressdetails=1`;
 
-                        fetch(reverseUrl, { headers: { 'Accept-Language': 'es' } })
-                            .then(response => response.json())
-                            .then(data => {
-                                if (data && data.display_name) {
-                                    let direccionSencilla = data.display_name.split(',').slice(0, 3).join(',');
-                                    inputOrigenOculto.value = `📍 Ubicación actual (${direccionSencilla})`;
-                                    
-                                    gpsStatusDiv.className = "status success";
-                                    gpsStatusDiv.innerHTML = `✅ Ubicación autorizada: <i>${direccionSencilla}</i>`;
-                                    btnPedir.disabled = false;
-                                    btnPedir.textContent = "Pedir Moto Ahora (700 Bs.)";
-                                } else {
-                                    fallbackGps(lat, lon);
-                                }
-                            })
-                            .catch(() => {
+                        fetch(reverseUrl, { 
+                            headers: { 
+                                'Accept-Language': 'es',
+                                'User-Agent': 'MartillosYRuedasApp/1.0'
+                            } 
+                        })
+                        .then(response => response.json())
+                        .then(data => {
+                            if (data && data.display_name) {
+                                // Reducimos la dirección para evitar textos inmensamente largos
+                                let direccionSencilla = data.display_name.split(',').slice(0, 3).join(',');
+                                inputOrigenOculto.value = `📍 Ubicación actual (${direccionSencilla})`;
+                                
+                                gpsStatusDiv.className = "status success";
+                                gpsStatusDiv.innerHTML = `✅ Ubicación autorizada: <i>${direccionSencilla}</i>`;
+                                btnPedir.disabled = false;
+                                btnPedir.textContent = "Pedir Moto Ahora (700 Bs.)";
+                            } else {
                                 fallbackGps(lat, lon);
-                            });
+                            }
+                        })
+                        .catch(() => {
+                            fallbackGps(lat, lon);
+                        });
                     },
                     (error) => {
                         console.error("Error de geolocalización: ", error);
                         gpsStatusDiv.className = "status error";
                         
-                        // Manejo explícito de las respuestas del navegador
                         if(error.code === error.PERMISSION_DENIED) {
-                            gpsStatusDiv.innerHTML = "❌ Permiso denegado. Debes permitir el acceso a la ubicación en los ajustes de tu navegador para poder pedir una moto.";
+                            gpsStatusDiv.innerHTML = "❌ Permiso denegado. Debes permitir el acceso a la ubicación en los ajustes de tu teléfono para poder pedir el viaje.";
                         } else {
-                            gpsStatusDiv.innerHTML = "❌ Error al obtener tu señal de GPS. Inténtalo de nuevo o muévete a un lugar abierto.";
+                            gpsStatusDiv.innerHTML = "❌ Error al obtener tu señal de GPS. Inténtalo de nuevo o muévete a un espacio abierto.";
                         }
                     },
                     { enableHighAccuracy: true, timeout: 15000 }
                 );
             } else {
                 gpsStatusDiv.className = "status error";
-                gpsStatusDiv.innerHTML = "❌ Tu dispositivo no es compatible con la geolocalización.";
+                gpsStatusDiv.innerHTML = "❌ Tu dispositivo no es compatible con geolocalización nativa.";
             }
         }
 
+        // Respaldo en caso de fallo en el resolvedor de nombres de calles
         function fallbackGps(lat, lon) {
             inputOrigenOculto.value = `📍 Coordenadas GPS (${lat.toFixed(5)}, ${lon.toFixed(5)})`;
             gpsStatusDiv.className = "status success";
-            gpsStatusDiv.innerHTML = "✅ Ubicación fijada por coordenadas de satélite.";
+            gpsStatusDiv.innerHTML = "✅ Ubicación fijada mediante coordenadas satelitales directas.";
             btnPedir.disabled = false;
             btnPedir.textContent = "Pedir Moto Ahora (700 Bs.)";
         }
 
-        // Ejecutar la solicitud de permiso inmediatamente al cargar la página
+        // Ejecutar la petición del GPS inmediatamente al renderizar la interfaz
         window.onload = () => {
             solicitarUbicacion();
         };
 
-        // --- AUTOCOMPLETADO DE DESTINO ---
+        // --- AUTOCOMPLETADO DE DESTINO INTELIGENTE ---
         function configurarAutocompletarDestino() {
             const input = document.getElementById('destino');
             const suggestionsContainer = document.getElementById('destino-suggestions');
@@ -165,19 +172,39 @@
                 }
 
                 timeout = setTimeout(() => {
-                    const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&viewbox=${bboxSanJuan}&bounded=1&countrycodes=ve&limit=5`;
+                    // Inyectamos el contexto geográfico para forzar al servidor a buscar dentro de la región
+                    const consultaOptimizada = `${query}, San Juan de los Morros, Guarico`;
+                    const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(consultaOptimizada)}&countrycodes=ve&limit=10`;
 
-                    fetch(url, { headers: { 'Accept-Language': 'es' } })
+                    fetch(url, { 
+                        headers: { 
+                            'Accept-Language': 'es',
+                            'User-Agent': 'MartillosYRuedasApp/1.0'
+                        } 
+                    })
                     .then(response => response.json())
                     .then(data => {
                         suggestionsContainer.innerHTML = '';
+                        
                         if (data.length === 0) {
                             suggestionsContainer.style.display = 'none';
                             return;
                         }
 
-                        data.forEach(item => {
-                            let nombreLimpio = item.display_name.split(',').slice(0, 3).join(',');
+                        // Filtro secundario de seguridad: nos quedamos solo con lo pertinente a San Juan de los Morros o Guárico
+                        const resultadosFiltrados = data.filter(item => {
+                            const direccionCompleta = item.display_name.toLowerCase();
+                            return direccionCompleta.includes("san juan de los morros") || direccionCompleta.includes("guarico") || direccionCompleta.includes("guárico");
+                        });
+
+                        if (resultadosFiltrados.length === 0) {
+                            suggestionsContainer.style.display = 'none';
+                            return;
+                        }
+
+                        resultadosFiltrados.forEach(item => {
+                            let partes = item.display_name.split(',');
+                            let nombreLimpio = partes.slice(0, 3).join(',').trim();
 
                             const div = document.createElement('div');
                             div.className = 'suggestion-item';
@@ -192,10 +219,13 @@
                         });
                         suggestionsContainer.style.display = 'block';
                     })
-                    .catch(err => console.error("Error al buscar destino: ", err));
-                }, 400);
+                    .catch(err => {
+                        console.error("Error al buscar destino: ", err);
+                    });
+                }, 450);
             });
 
+            // Ocultar la lista si se hace clic fuera del buscador o de las opciones
             document.addEventListener('click', function(e) {
                 if (e.target !== input && e.target !== suggestionsContainer) {
                     suggestionsContainer.style.display = 'none';
@@ -205,7 +235,7 @@
 
         configurarAutocompletarDestino();
 
-        // Alertas del backend
+        // Manejo de respuestas y alertas enviadas desde el backend
         const params = new URLSearchParams(window.location.search);
         const status = params.get('status');
         const container = document.getElementById('status-container');
