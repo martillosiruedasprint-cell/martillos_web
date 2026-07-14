@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, session, redirect, jsonify, url_for
+from flask import Flask, render_template, request, session, redirect, jsonify, url_for, abort
 import sqlite3
 from datetime import datetime
 import os
@@ -18,7 +18,7 @@ def init_db():
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
     
-    # Tabla de Usuarios con Campos extendidos para Conductores y Pasajeros
+    # Tabla de Usuarios
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS usuarios (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -82,6 +82,13 @@ def get_config():
     res = cursor.fetchone()
     conn.close()
     return {"tasa": res[0], "imagen": res[1], "video": res[2]}
+
+# Decorador/Helper para proteger rutas de Administrador de manera estricta
+def requerir_admin():
+    if 'user_id' not in session or session.get('rol') != 'admin':
+        # Rebotar inmediatamente al login si no es administrador legítimo
+        return False
+    return True
 
 # ==================== RUTAS DE AUTENTICACIÓN ====================
 
@@ -154,7 +161,8 @@ def registro_pasajero():
 
 @app.route('/admin_historial')
 def admin_historial():
-    if session.get('rol') != 'admin': return redirect('/')
+    if not requerir_admin(): 
+        return redirect('/login')
     
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
@@ -178,7 +186,8 @@ def admin_historial():
 
 @app.route('/admin/crear_conductor', methods=['POST'])
 def crear_conductor():
-    if session.get('rol') != 'admin': return redirect('/')
+    if not requerir_admin(): 
+        return redirect('/login')
     
     nombre = request.form.get('nombre')
     apellido = request.form.get('apellido')
@@ -207,7 +216,9 @@ def crear_conductor():
 
 @app.route('/admin/actualizar_tasa', methods=['POST'])
 def actualizar_tasa():
-    if session.get('rol') != 'admin': return redirect('/')
+    if not requerir_admin(): 
+        return redirect('/login')
+        
     tasa = float(request.form.get('tasa'))
     if tasa < 6.0: tasa = 6.0
     if tasa > 9.0: tasa = 9.0
@@ -221,7 +232,8 @@ def actualizar_tasa():
 
 @app.route('/admin/subir_multimedia', methods=['POST'])
 def subir_multimedia():
-    if session.get('rol') != 'admin': return redirect('/')
+    if not requerir_admin(): 
+        return redirect('/login')
     
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
@@ -246,17 +258,17 @@ def subir_multimedia():
 
 @app.route('/pasajero')
 def pasajero():
-    if session.get('rol') != 'pasajero': return redirect('/')
+    if 'user_id' not in session or session.get('rol') != 'pasajero': return redirect('/')
     return render_template('pasajero.html')
 
 @app.route('/conductor')
 def conductor():
-    if session.get('rol') != 'conductor': return redirect('/')
+    if 'user_id' not in session or session.get('rol') != 'conductor': return redirect('/')
     return render_template('conductor.html', driver_name=session.get('nombre'))
 
 @app.route('/solicitar_viaje', methods=['POST'])
 def solicitar_viaje():
-    if session.get('rol') != 'pasajero': return redirect('/')
+    if 'user_id' not in session or session.get('rol') != 'pasajero': return redirect('/')
     origen = request.form.get('origen')
     destino = request.form.get('destino')
     fecha = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
