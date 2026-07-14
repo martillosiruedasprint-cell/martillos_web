@@ -5,34 +5,134 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Pasajero | Martillos & Ruedas</title>
     <style>
-        body { display: flex; flex-direction: column; justify-content: center; align-items: center; height: 100vh; background-color: #000; margin: 0; font-family: sans-serif; color: #fff; }
+        body { 
+            display: flex; 
+            flex-direction: column; 
+            justify-content: center; 
+            align-items: center; 
+            height: 100vh; 
+            background-color: #000; 
+            margin: 0; 
+            font-family: sans-serif; 
+            color: #fff; 
+        }
         
         /* Tarjeta de perfil en esquina */
-        .perfil-info { position: absolute; top: 15px; left: 15px; background: #111; padding: 12px; border-radius: 8px; border: 1px solid #333; font-size: 14px; }
-        .perfil-info b { color: #ffeb3b; }
+        .perfil-info { 
+            position: absolute; 
+            top: 15px; 
+            left: 15px; 
+            background: #111; 
+            padding: 12px; 
+            border-radius: 8px; 
+            border: 1px solid #333; 
+            font-size: 14px; 
+        }
+        .perfil-info b { 
+            color: #ffeb3b; 
+        }
         
-        .boton-gigante { background-color: #ffeb3b; color: #000; border: none; border-radius: 50%; width: 250px; height: 250px; font-size: 24px; font-weight: bold; cursor: pointer; box-shadow: 0 0 20px rgba(255, 235, 59, 0.5); transition: 0.2s; text-transform: uppercase; margin-bottom: 20px; }
-        .boton-gigante:active { transform: scale(0.95); }
+        .boton-gigante { 
+            background-color: #ffeb3b; 
+            color: #000; 
+            border: none; 
+            border-radius: 50%; 
+            width: 250px; 
+            height: 250px; 
+            font-size: 24px; 
+            font-weight: bold; 
+            cursor: pointer; 
+            box-shadow: 0 0 20px rgba(255, 235, 59, 0.5); 
+            transition: 0.2s; 
+            text-transform: uppercase; 
+            margin-bottom: 20px; 
+        }
+        .boton-gigante:active { 
+            transform: scale(0.95); 
+        }
 
         /* Contenedor del Buscador de Destino */
-        .buscador-contenedor { display: none; background: #111; border: 2px solid #ffeb3b; padding: 20px; border-radius: 12px; width: 90%; max-width: 400px; box-shadow: 0 0 20px rgba(255,235,59,0.2); box-sizing: border-box; }
-        .buscador-contenedor h3 { margin: 0 0 10px 0; color: #ffeb3b; text-align: center; }
+        .buscador-contenedor { 
+            display: none; 
+            background: #111; 
+            border: 2px solid #ffeb3b; 
+            padding: 20px; 
+            border-radius: 12px; 
+            width: 90%; 
+            max-width: 400px; 
+            box-shadow: 0 0 20px rgba(255,235,59,0.2); 
+            box-sizing: border-box; 
+        }
+        .buscador-contenedor h3 { 
+            margin: 0 0 10px 0; 
+            color: #ffeb3b; 
+            text-align: center; 
+        }
         
-        .input-busqueda { width: 100%; padding: 12px; background: #222; border: 1px solid #444; color: #fff; border-radius: 6px; font-size: 16px; box-sizing: border-box; }
-        .input-busqueda:focus { border-color: #ffeb3b; outline: none; }
+        .input-busqueda { 
+            width: 100%; 
+            padding: 12px; 
+            background: #222; 
+            border: 1px solid #444; 
+            color: #fff; 
+            border-radius: 6px; 
+            font-size: 16px; 
+            box-sizing: border-box; 
+        }
+        .input-busqueda:focus { 
+            border-color: #ffeb3b; 
+            outline: none; 
+        }
 
         /* Lista de sugerencias desplegable */
-        .sugerencias-lista { background: #222; border: 1px solid #444; border-radius: 6px; max-height: 200px; overflow-y: auto; margin-top: 5px; padding: 0; list-style: none; display: none; }
-        .sugerencias-lista li { padding: 10px 15px; cursor: pointer; border-bottom: 1px solid #333; font-size: 14px; color: #ddd; }
-        .sugerencias-lista li:hover { background: #ffeb3b; color: #000; }
+        .sugerencias-lista { 
+            background: #222; 
+            border: 1px solid #444; 
+            border-radius: 6px; 
+            max-height: 200px; 
+            overflow-y: auto; 
+            margin-top: 5px; 
+            padding: 0; 
+            list-style: none; 
+            display: none; 
+        }
+        .sugerencias-lista li { 
+            padding: 10px 15px; 
+            cursor: pointer; 
+            border-bottom: 1px solid #333; 
+            font-size: 14px; 
+            color: #ddd; 
+        }
+        .sugerencias-lista li:hover { 
+            background: #ffeb3b; 
+            color: #000; 
+        }
 
-        .btn-cancelar { background: transparent; color: #aaa; border: none; margin-top: 10px; cursor: pointer; width: 100%; text-align: center; font-size: 14px; }
+        .btn-cancelar { 
+            background: transparent; 
+            color: #aaa; 
+            border: none; 
+            margin-top: 10px; 
+            cursor: pointer; 
+            width: 100%; 
+            text-align: center; 
+            font-size: 14px; 
+        }
+        
+        .btn-cerrar-sesion {
+            display: inline-block;
+            margin-top: 8px;
+            color: #ff3b30;
+            text-decoration: none;
+            font-size: 12px;
+        }
     </style>
 </head>
 <body>
     <div class="perfil-info">
-        Usuario: <b>{{ session.get('email', 'Invitado') }}</b><br>
-        Saldo: <b>${{ "%.2f"|format(session.get('balance', 0.0)) }}</b>
+        Usuario: <b>{{ session.get('nombre', 'Invitado') }}</b><br>
+        Saldo: <b>${{ "%.2f"|format(session.get('saldo', 0.0)) }}</b><br>
+        <a href="/logout" class="btn-cerrar-sesion">Cerrar Sesión</a>
     </div>
 
     <!-- Botón Gigante Inicial -->
@@ -43,7 +143,7 @@
     <!-- Caja de Búsqueda Interactiva con Sugerencias -->
     <div id="buscadorViaje" class="buscador-contenedor">
         <h3>¿A dónde te diriges?</h3>
-        <input type="text" id="inputDestino" class="input-busqueda" placeholder="Ej: Plaza Bolívar, San Juan de los Morros..." oninput="buscarDirecciones(this.value)" autocomplete="off">
+        <input type="text" id="inputDestino" class="input-busqueda" placeholder="Ej: Plaza Bolívar, Sendrea, Los Laureles..." oninput="buscarDirecciones(this.value)" autocomplete="off">
         <ul id="listaSugerencias" class="sugerencias-lista"></ul>
         <button class="btn-cancelar" onclick="ocultarBuscador()">Cancelar</button>
     </div>
@@ -64,7 +164,7 @@
             document.getElementById('listaSugerencias').style.display = 'none';
         }
 
-        // Función que consulta a OpenStreetMap de forma asíncrona mientras el usuario escribe
+        // Busca direcciones restringiendo los resultados estrictamente a San Juan de los Morros
         function buscarDirecciones(texto) {
             clearTimeout(timeoutBusqueda);
             const lista = document.getElementById('listaSugerencias');
@@ -75,10 +175,10 @@
                 return;
             }
 
-            // Esperamos 400ms tras dejar de escribir para no saturar con peticiones continuas (Debounce)
             timeoutBusqueda = setTimeout(() => {
-                // Enfocamos la búsqueda prioritariamente en Venezuela para mejores sugerencias locales
-                const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(texto)}&countrycodes=ve&limit=5`;
+                // Cuadrante de coordenadas límite (Bounding Box) exclusivo para San Juan de los Morros
+                // viewbox=-67.394,9.940,-67.310,9.880 & bounded=1 restringe la búsqueda a este perímetro.
+                const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(texto)}&countrycodes=ve&viewbox=-67.394,9.940,-67.310,9.880&bounded=1&limit=5`;
 
                 fetch(url, {
                     headers: { 'Accept-Language': 'es' }
@@ -89,9 +189,12 @@
                     if (data.length > 0) {
                         data.forEach(item => {
                             const li = document.createElement('li');
-                            // Mostramos el nombre descriptivo del lugar
-                            li.innerText = item.display_name;
-                            li.onclick = () => seleccionarDestino(item.display_name);
+                            
+                            // Simplificamos la dirección quitando el resto de Venezuela para que sea legible y corto
+                            let nombreCorto = item.display_name.split(', Municipio')[0];
+                            
+                            li.innerText = nombreCorto;
+                            li.onclick = () => seleccionarDestino(nombreCorto);
                             lista.appendChild(li);
                         });
                         lista.style.display = 'block';
@@ -103,12 +206,12 @@
             }, 400);
         }
 
-        // Ejecuta el envío automático del formulario a Flask cuando el usuario hace clic en una sugerencia
+        // Ejecuta el envío automático del viaje con los datos dinámicos
         function seleccionarDestino(direccionCompleta) {
             document.getElementById('inputDestino').value = direccionCompleta;
             document.getElementById('listaSugerencias').style.display = 'none';
 
-            // Creamos el formulario virtual POST hacia nuestra ruta de Flask
+            // Creamos el formulario virtual POST
             const form = document.createElement('form');
             form.method = 'POST';
             form.action = '/solicitar_viaje';
@@ -116,13 +219,14 @@
             const inputPasajero = document.createElement('input');
             inputPasajero.type = 'hidden';
             inputPasajero.name = 'pasajero';
-            inputPasajero.value = "Pasajero Invitado"; 
+            // Toma dinámicamente el nombre del usuario de la sesión actual
+            inputPasajero.value = "{{ session.get('nombre', 'Pasajero') }}"; 
             form.appendChild(inputPasajero);
 
             const inputOrigen = document.createElement('input');
             inputOrigen.type = 'hidden';
             inputOrigen.name = 'origen';
-            inputOrigen.value = "Plaza Bolívar, San Juan de los Morros"; // Dirección base inicial
+            inputOrigen.value = "San Juan de los Morros"; // Dirección base de origen local
             form.appendChild(inputOrigen);
 
             const inputDestino = document.createElement('input');
@@ -132,7 +236,7 @@
             form.appendChild(inputDestino);
 
             document.body.appendChild(form);
-            alert("¡Buscando conductor cercano!\nDestino seleccionado: " + direccionCompleta);
+            alert("¡Buscando conductor cercano!\nDestino: " + direccionCompleta);
             form.submit();
         }
     </script>
