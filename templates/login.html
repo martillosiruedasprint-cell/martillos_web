@@ -1,0 +1,24 @@
+﻿<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Acceso | Martillos & Ruedas</title>
+    <style>
+        body { background-color: #000; color: #fff; font-family: sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
+        .login-box { background: #111; padding: 40px; border-radius: 10px; border: 1px solid #ffeb3b; text-align: center; width: 300px; }
+        h1 { color: #ffeb3b; margin-bottom: 30px; }
+        input { width: 90%; padding: 12px; margin: 10px 0; border-radius: 5px; border: 1px solid #555; background: #222; color: #fff; }
+        .btn { background: #ffeb3b; color: #000; font-weight: bold; border: none; padding: 12px; width: 100%; border-radius: 5px; cursor: pointer; text-transform: uppercase; margin-top: 15px; }
+    </style>
+</head>
+<body>
+    <div class="login-box">
+        <h1>Martillos & Ruedas</h1>
+        <form action="/login" method="POST">
+            <input type="text" name="email" placeholder="Correo (o 'admin')" required>
+            <input type="password" name="password" placeholder="Contraseña" required>
+            <button type="submit" class="btn">Entrar</button>
+        </form>
+    </div>
+</body>
+</html>

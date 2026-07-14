@@ -1,0 +1,13 @@
+﻿<!DOCTYPE html>
+<html>
+<head><title>Panel Admin - Historial</title></head>
+<body style="background:#000; color:#fff; font-family:sans-serif; padding:20px;">
+    <h1>Historial de Viajes</h1>
+    <table border="1" width="100%" style="border-collapse:collapse; color:#fff;">
+        <tr><th>ID</th><th>Pasajero</th><th>Precio</th><th>Fecha</th></tr>
+        {% for v in viajes %}
+        <tr><td>{{ v.id }}</td><td>{{ v.rider_id }}</td><td>${{ v.price }}</td><td>{{ v.date }}</td></tr>
+        {% endfor %}
+    </table>
+</body>
+</html>

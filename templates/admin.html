@@ -1,0 +1,33 @@
+﻿<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Panel Admin</title>
+    <style>
+        body { background-color: #000; color: #fff; font-family: sans-serif; padding: 20px; }
+        .card { background: #111; border: 1px solid #ffeb3b; padding: 25px; border-radius: 10px; margin-bottom: 25px; }
+        h1, h3 { color: #ffeb3b; }
+        .btn { background: #ffeb3b; color: #000; font-weight: bold; padding: 10px 20px; border: none; border-radius: 5px; cursor: pointer; }
+        input { padding: 10px; border-radius: 5px; background: #222; color: #fff; border: 1px solid #555; }
+        table { width: 100%; border-collapse: collapse; margin-top: 15px; }
+        th, td { padding: 12px; border-bottom: 1px solid #333; text-align: left; }
+    </style>
+</head>
+<body>
+    <h1>Centro de Comando | Hola, {{ admin.name }}</h1>
+    <a href="/logout" style="color: #ffeb3b; float: right;">Cerrar Sesión</a>
+    
+    <div class="card">
+        <h3>Seguridad de la Cuenta</h3>
+        <form action="/api/change_admin_password" method="POST">
+            <input type="password" name="new_password" placeholder="Nueva Contraseña" required>
+            <button type="submit" class="btn">Actualizar Clave</button>
+        </form>
+    </div>
+
+    <div class="card">
+        <h3>Tu Ganancia Acumulada</h3>
+        <div style="font-size: 40px; color: #ffeb3b;">${{ "%.2f"|format(admin.balance) }}</div>
+    </div>
+</body>
+</html>

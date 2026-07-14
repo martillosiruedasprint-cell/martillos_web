@@ -1,0 +1,28 @@
+﻿<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pasajero | Martillos & Ruedas</title>
+    <style>
+        body { display: flex; justify-content: center; align-items: center; height: 100vh; background-color: #000; margin: 0; font-family: sans-serif; color: #fff; }
+        
+        /* Tarjeta de perfil en esquina */
+        .perfil-info { position: absolute; top: 15px; left: 15px; background: #111; padding: 12px; border-radius: 8px; border: 1px solid #333; font-size: 14px; }
+        .perfil-info b { color: #ffeb3b; }
+        
+        .boton-gigante { background-color: #ffeb3b; color: #000; border: none; border-radius: 50%; width: 250px; height: 250px; font-size: 24px; font-weight: bold; cursor: pointer; box-shadow: 0 0 20px rgba(255, 235, 59, 0.5); transition: 0.2s; text-transform: uppercase; }
+        .boton-gigante:active { transform: scale(0.95); }
+    </style>
+</head>
+<body>
+    <div class="perfil-info">
+        Usuario: <b>{{ session.get('email', 'Invitado') }}</b><br>
+        Saldo: <b>${{ "%.2f"|format(session.get('balance', 0.0)) }}</b>
+    </div>
+
+    <button class="boton-gigante" onclick="alert('Buscando conductor cercano...')">
+        PEDIR<br>MOTO
+    </button>
+</body>
+</html>
