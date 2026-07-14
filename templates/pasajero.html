@@ -8,19 +8,39 @@
         body { background-color: #0b0b0b; color: #ffffff; font-family: sans-serif; padding: 25px; }
         h1, h2, h3 { color: #ffeb3b; }
         .container { max-width: 600px; margin: 0 auto; }
-        .card { background: #161616; border: 1px solid #333; padding: 25px; border-radius: 10px; margin-bottom: 25px; box-shadow: 0 4px 6px rgba(0,0,0,0.3); }
-        .input-field { width: 100%; padding: 12px; margin: 8px 0 16px 0; background: #222; border: 1px solid #444; color: #fff; border-radius: 6px; box-sizing: border-box; }
+        .card { background: #161616; border: 1px solid #333; padding: 25px; border-radius: 10px; margin-bottom: 25px; box-shadow: 0 4px 6px rgba(0,0,0,0.3); position: relative; }
+        .input-field { width: 100%; padding: 12px; margin: 8px 0 4px 0; background: #222; border: 1px solid #444; color: #fff; border-radius: 6px; box-sizing: border-box; }
         .input-field:focus { border-color: #ffeb3b; outline: none; }
-        .btn { padding: 14px 20px; background: #ffeb3b; color: #000; border: none; font-weight: bold; cursor: pointer; border-radius: 6px; width: 100%; font-size: 16px; }
+        .btn { padding: 14px 20px; background: #ffeb3b; color: #000; border: none; font-weight: bold; cursor: pointer; border-radius: 6px; width: 100%; font-size: 16px; margin-top: 15px; }
         .btn:hover { background: #fbc02d; }
         .btn-logout { float: right; background: #ff3b30; color:#fff; text-decoration:none; padding:10px 20px; border-radius:6px; font-weight:bold; }
         .status { padding: 12px; margin-bottom: 20px; border-radius: 6px; text-align: center; font-weight: bold; }
         .status.success { background: #4cd964; color: #000; }
         .status.error { background: #ff3b30; color: #fff; }
-        .pac-container { background-color: #222 !important; border: 1px solid #444; border-radius: 6px; }
-        .pac-item { color: #fff !important; border-top: 1px solid #333; }
-        .pac-item:hover { background-color: #333 !important; }
-        .pac-item-query { color: #ffeb3b !important; }
+        
+        /* Contenedor de sugerencias del autocompletar gratuito */
+        .autocomplete-suggestions {
+            position: absolute;
+            background: #222;
+            border: 1px solid #444;
+            border-radius: 6px;
+            max-height: 200px;
+            overflow-y: auto;
+            width: calc(100% - 50px);
+            z-index: 999;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.5);
+            display: none;
+        }
+        .suggestion-item {
+            padding: 10px 15px;
+            cursor: pointer;
+            border-bottom: 1px solid #333;
+            font-size: 14px;
+        }
+        .suggestion-item:hover {
+            background-color: #333;
+            color: #ffeb3b;
+        }
     </style>
 </head>
 <body>
@@ -33,13 +53,20 @@
         <!-- SOLICITAR VIAJE -->
         <div class="card">
             <h3>🚖 Solicitar Nuevo Viaje</h3>
-            <p style="color: #aaa; font-size: 14px; margin-top: 0;">Los pagos se realizan en Bs. Tarifa permitida: 1.000 Bs. a 10.000 Bs.</p>
-            <form action="/solicitar_viaje" method="POST">
-                Dirección de Origen:
-                <input type="text" id="origen" name="origen" required class="input-field" placeholder="Buscar dirección de salida...">
+            <p style="color: #aaa; font-size: 14px; margin-top: 0;">Límite del servicio: San Juan de los Morros. Tarifas de 1.000 Bs. a 10.000 Bs.</p>
+            
+            <form action="/solicitar_viaje" method="POST" autocomplete="off">
+                <div style="position: relative; margin-bottom: 12px;">
+                    Dirección de Origen:
+                    <input type="text" id="origen" name="origen" required class="input-field" placeholder="Escribe el punto de salida...">
+                    <div id="origen-suggestions" class="autocomplete-suggestions"></div>
+                </div>
                 
-                Dirección de Destino:
-                <input type="text" id="destino" name="destino" required class="input-field" placeholder="Buscar destino...">
+                <div style="position: relative; margin-bottom: 12px;">
+                    Dirección de Destino:
+                    <input type="text" id="destino" name="destino" required class="input-field" placeholder="Escribe el punto de llegada...">
+                    <div id="destino-suggestions" class="autocomplete-suggestions"></div>
+                </div>
                 
                 Monto del Viaje (Bs.):
                 <input type="number" name="monto" min="1000" max="10000" required class="input-field" placeholder="Ej: 2500">
@@ -49,29 +76,78 @@
         </div>
     </div>
 
-    <!-- Script de Autocompletado de Google Maps limitado a San Juan de los Morros -->
     <script>
-        function initAutocomplete() {
-            // Coordenadas aproximadas de San Juan de los Morros, Venezuela
-            const sanJuanBounds = new google.maps.LatLngBounds(
-                new google.maps.LatLng(9.880, -67.380), // Suroeste
-                new google.maps.LatLng(9.930, -67.320)  // Noreste
-            );
+        // Coordenadas aproximadas (Bounding Box) de San Juan de los Morros
+        // Formato: oeste, sur, este, norte
+        const bboxSanJuan = "-67.380,9.880,-67.320,9.930"; 
 
-            const options = {
-                bounds: sanJuanBounds,
-                strictBounds: true, // Esto obliga al buscador a limitarse estrictamente a la caja de San Juan de los Morros
-                componentRestrictions: { country: "ve" } // Solo en Venezuela
-            };
+        function configurarAutocompletar(inputId, suggestionsId) {
+            const input = document.getElementById(inputId);
+            const suggestionsContainer = document.getElementById(suggestionsId);
+            let timeout = null;
 
-            const inputOrigen = document.getElementById('origen');
-            const inputDestino = document.getElementById('destino');
+            input.addEventListener('input', function() {
+                clearTimeout(timeout);
+                const query = input.value.trim();
 
-            new google.maps.places.Autocomplete(inputOrigen, options);
-            new google.maps.places.Autocomplete(inputDestino, options);
+                if (query.length < 3) {
+                    suggestionsContainer.style.display = 'none';
+                    return;
+                }
+
+                // Esperar 400ms después de que el usuario deje de escribir para no saturar el servidor gratuito
+                timeout = setTimeout(() => {
+                    // Consultar la API gratuita de OpenStreetMap (Nominatim)
+                    // Filtramos por el Bounding Box de San Juan de los Morros y limitamos a Venezuela (ve)
+                    const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&viewbox=${bboxSanJuan}&bounded=1&countrycodes=ve&limit=5`;
+
+                    fetch(url, {
+                        headers: {
+                            'Accept-Language': 'es' // Forzar nombres en español
+                        }
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        suggestionsContainer.innerHTML = '';
+                        if (data.length === 0) {
+                            suggestionsContainer.style.display = 'none';
+                            return;
+                        }
+
+                        data.forEach(item => {
+                            // Limpiar un poco el nombre para que no salga una dirección gigante e ilegible
+                            let nombreLimpio = item.display_name.split(',').slice(0, 3).join(',');
+
+                            const div = document.createElement('div');
+                            div.className = 'suggestion-item';
+                            div.textContent = nombreLimpio;
+                            
+                            div.addEventListener('click', function() {
+                                input.value = nombreLimpio;
+                                suggestionsContainer.style.display = 'none';
+                            });
+
+                            suggestionsContainer.appendChild(div);
+                        });
+                        suggestionsContainer.style.display = 'block';
+                    })
+                    .catch(err => console.error("Error al buscar dirección: ", err));
+                }, 400);
+            });
+
+            // Cerrar las sugerencias si el usuario hace clic fuera del buscador
+            document.addEventListener('click', function(e) {
+                if (e.target !== input && e.target !== suggestionsContainer) {
+                    suggestionsContainer.style.display = 'none';
+                }
+            });
         }
 
-        // Manejo de mensajes de estado
+        // Inicializar el autocompletar para origen y destino
+        configurarAutocompletar('origen', 'origen-suggestions');
+        configurarAutocompletar('destino', 'destino-suggestions');
+
+        // Alertas de estado
         const params = new URLSearchParams(window.location.search);
         const status = params.get('status');
         const container = document.getElementById('status-container');
@@ -80,9 +156,8 @@
         } else if (status === 'limite_monto') {
             container.innerHTML = '<div class="status error">El monto debe estar entre 1.000 Bs. y 10.000 Bs.</div>';
         } else if (status === 'error') {
-            container.innerHTML = '<div class="status error">Hubo un error al procesar tu solicitud. Intenta de nuevo.</div>';
+            container.innerHTML = '<div class="status error">Hubo un error al procesar tu solicitud.</div>';
         }
     </script>
-    <script src="https://maps.googleapis.com/maps/api/js?key=TU_API_KEY&libraries=places&callback=initAutocomplete" async defer></script>
 </body>
 </html>
