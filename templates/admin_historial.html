@@ -5,130 +5,23 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Panel de Administración | Martillos & Ruedas</title>
     <style>
-        body { 
-            background-color: #0b0b0b; 
-            color: #ffffff; 
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
-            margin: 0; 
-            padding: 25px;
-        }
-        h1, h2, h3 { 
-            color: #ffeb3b; 
-            font-weight: 600;
-        }
-        .header-admin {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            border-bottom: 2px solid #ffeb3b;
-            padding-bottom: 15px;
-            margin-bottom: 30px;
-        }
-        .grid-stats { 
-            display: grid; 
-            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); 
-            gap: 20px; 
-            margin-bottom: 30px; 
-        }
-        .card-stat { 
-            background: #161616; 
-            border: 1px solid #2a2a2a; 
-            padding: 20px; 
-            border-radius: 10px; 
-            text-align: center;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
-        }
-        .counter { 
-            font-size: 38px; 
-            font-weight: bold; 
-            color: #ffeb3b; 
-            margin-top: 5px;
-        }
-        .main-content {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
-            gap: 25px;
-            margin-bottom: 30px;
-        }
-        .card-form { 
-            background: #161616; 
-            border: 1px solid #333; 
-            padding: 25px; 
-            border-radius: 10px;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
-        }
-        .input-field { 
-            width: 100%; 
-            padding: 10px; 
-            margin: 8px 0 16px 0; 
-            background: #222; 
-            border: 1px solid #444; 
-            color: #fff; 
-            border-radius: 6px; 
-            box-sizing: border-box; 
-        }
-        .input-field:focus {
-            border-color: #ffeb3b;
-            outline: none;
-        }
-        .btn-yellow { 
-            padding: 12px 20px; 
-            background: #ffeb3b; 
-            color: #000; 
-            border: none; 
-            font-weight: bold; 
-            cursor: pointer; 
-            border-radius: 6px; 
-            width: 100%;
-            font-size: 15px;
-            transition: background 0.2s;
-        }
-        .btn-yellow:hover {
-            background: #fbc02d;
-        }
-        .btn-logout { 
-            background: #ff3b30; 
-            color: white; 
-            text-decoration: none; 
-            padding: 10px 20px; 
-            border-radius: 6px; 
-            font-weight: bold; 
-            font-size: 14px;
-        }
-        .section-table {
-            background: #161616;
-            border: 1px solid #2a2a2a;
-            padding: 20px;
-            border-radius: 10px;
-            margin-bottom: 30px;
-            overflow-x: auto;
-        }
-        table { 
-            width: 100%; 
-            border-collapse: collapse; 
-            margin-top: 15px; 
-        }
-        th, td { 
-            padding: 12px 15px; 
-            border-bottom: 1px solid #2a2a2a; 
-            text-align: left; 
-        }
-        th { 
-            background: #222; 
-            color: #ffeb3b; 
-            font-weight: 600;
-        }
-        tr:hover {
-            background: #1f1f1f;
-        }
-        .badge-pendiente {
-            background: #5d4037;
-            color: #ffb74d;
-            padding: 4px 8px;
-            border-radius: 4px;
-            font-size: 12px;
-            font-weight: bold;
-        }
+        body { background-color: #0b0b0b; color: #ffffff; font-family: sans-serif; margin: 0; padding: 25px; }
+        h1, h2, h3 { color: #ffeb3b; }
+        .header-admin { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #ffeb3b; padding-bottom: 15px; margin-bottom: 30px; }
+        .grid-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 20px; margin-bottom: 30px; }
+        .card-stat { background: #161616; border: 1px solid #2a2a2a; padding: 20px; border-radius: 10px; text-align: center; }
+        .counter { font-size: 38px; font-weight: bold; color: #ffeb3b; margin-top: 5px; }
+        .card-form { background: #161616; border: 1px solid #333; padding: 25px; border-radius: 10px; margin-bottom: 30px; }
+        .input-field { width: 100%; padding: 10px; margin: 8px 0 16px 0; background: #222; border: 1px solid #444; color: #fff; border-radius: 6px; box-sizing: border-box; }
+        .input-field:focus { border-color: #ffeb3b; outline: none; }
+        .btn-yellow { padding: 12px 20px; background: #ffeb3b; color: #000; border: none; font-weight: bold; cursor: pointer; border-radius: 6px; width: 100%; font-size: 15px; }
+        .btn-logout { background: #ff3b30; color: white; text-decoration: none; padding: 10px 20px; border-radius: 6px; font-weight: bold; }
+        .section-table { background: #161616; border: 1px solid #2a2a2a; padding: 20px; border-radius: 10px; margin-bottom: 30px; overflow-x: auto; }
+        table { width: 100%; border-collapse: collapse; margin-top: 15px; }
+        th, td { padding: 12px 15px; border-bottom: 1px solid #2a2a2a; text-align: left; }
+        th { background: #222; color: #ffeb3b; }
+        tr:hover { background: #1f1f1f; }
+        .badge-pendiente { background: #5d4037; color: #ffb74d; padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: bold; }
     </style>
 </head>
 <body>
@@ -141,7 +34,7 @@
         <a href="/logout" class="btn-logout">Cerrar Sesión</a>
     </div>
 
-    <!-- Indicadores de estado -->
+    <!-- Indicadores -->
     <div class="grid-stats">
         <div class="card-stat">
             <span style="color:#aaa; font-size: 14px; text-transform: uppercase;">Pasajeros Registrados</span>
@@ -153,80 +46,26 @@
         </div>
     </div>
 
-    <div class="main-content">
-        <!-- FORMULARIO PARA ALTA DE CONDUCTORES -->
-        <div class="card-form">
-            <h3>➕ Registrar Nuevo Conductor</h3>
-            <form action="/admin/crear_conductor" method="POST">
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
-                    <div>
-                        <label>Nombre:</label>
-                        <input type="text" name="nombre" required class="input-field">
-                        
-                        <label>Apellido:</label>
-                        <input type="text" name="apellido" required class="input-field">
-                        
-                        <label>Cédula:</label>
-                        <input type="text" name="cedula" required class="input-field">
-                        
-                        <label>Correo Electrónico:</label>
-                        <input type="email" name="email" required class="input-field">
-                    </div>
-                    <div>
-                        <label>Contraseña Acceso:</label>
-                        <input type="password" name="password" required class="input-field">
-                        
-                        <label>Placa Moto:</label>
-                        <input type="text" name="placa" required class="input-field">
-                        
-                        <label>Serial Motor:</label>
-                        <input type="text" name="serial_motor" required class="input-field">
-                        
-                        <label>Serial Carrocería:</label>
-                        <input type="text" name="serial_carroceria" required class="input-field">
-                    </div>
+    <!-- REGISTRAR CONDUCTOR -->
+    <div class="card-form">
+        <h3>➕ Registrar Nuevo Conductor</h3>
+        <form action="/admin/crear_conductor" method="POST">
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px;">
+                <div>
+                    <label>Nombre:</label><input type="text" name="nombre" required class="input-field">
+                    <label>Apellido:</label><input type="text" name="apellido" required class="input-field">
+                    <label>Cédula:</label><input type="text" name="cedula" required class="input-field">
+                    <label>Correo Electrónico:</label><input type="email" name="email" required class="input-field">
                 </div>
-                <button type="submit" class="btn-yellow" style="margin-top: 10px;">Dar de Alta en la Flota</button>
-            </form>
-        </div>
-    </div>
-
-    <!-- PENDIENTES DE RECARGA -->
-    <h2>💸 Solicitudes de Recarga Pendientes</h2>
-    <div class="section-table">
-        {% if pagos_pendientes %}
-        <table>
-            <thead>
-                <tr>
-                    <th>Pasajero</th>
-                    <th>Monto</th>
-                    <th>Referencia</th>
-                    <th>Acciones</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for pago in pagos_pendientes %}
-                <tr>
-                    <td><b>{{ pago[1] }}</b></td>
-                    <td style="color:#4cd964; font-weight:bold;">${{ "%.2f"|format(pago[2]) }}</td>
-                    <td><code>{{ pago[3] }}</code></td>
-                    <td>
-                        <div style="display:flex; gap:10px;">
-                            <form action="/admin/procesar_pago/{{ pago[0] }}/aprobar" method="POST" style="display:inline;">
-                                <button type="submit" style="background:#4cd964; color: black; border:none; padding:8px 14px; border-radius:4px; font-weight:bold; cursor:pointer;">✓ Aprobar</button>
-                            </form>
-                            <form action="/admin/procesar_pago/{{ pago[0] }}/rechazar" method="POST" style="display:inline;">
-                                <button type="submit" style="background:#ff3b30; color:white; border:none; padding:8px 14px; border-radius:4px; font-weight:bold; cursor:pointer;">✕ Rechazar</button>
-                            </form>
-                        </div>
-                    </td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
-        {% else %}
-        <p style="color:#888; margin: 10px 0;">No hay solicitudes de recarga pendientes de validación bancaria en este momento.</p>
-        {% endif %}
+                <div>
+                    <label>Contraseña Acceso:</label><input type="password" name="password" required class="input-field">
+                    <label>Placa Moto:</label><input type="text" name="placa" required class="input-field">
+                    <label>Serial Motor:</label><input type="text" name="serial_motor" required class="input-field">
+                    <label>Serial Carrocería:</label><input type="text" name="serial_carroceria" required class="input-field">
+                </div>
+            </div>
+            <button type="submit" class="btn-yellow" style="margin-top: 15px;">Dar de Alta en la Flota</button>
+        </form>
     </div>
 
     <!-- HISTORIAL GENERAL DE VIAJES -->
