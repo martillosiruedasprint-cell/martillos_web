@@ -1,34 +1,129 @@
-<!-- Reemplaza únicamente la sección de la tabla en tu archivo HTML -->
-<h2>🚖 Historial General de Viajes</h2>
-<div class="section-table">
-    {% if viajes %}
-    <table>
-        <thead>
-            <tr>
-                <th>ID</th>
-                <th>Pasajero</th>
-                <th>Origen</th>
-                <th>Destino</th>
-                <th>Monto</th>
-                <th>Fecha y Hora</th>
-                <th>Estado</th>
-            </tr>
-        </thead>
-        <tbody>
-            {% for viaje in viajes %}
-            <tr>
-                <td>{{ viaje[0] }}</td>
-                <td><b>{{ viaje[1] }}</b></td>
-                <td>{{ viaje[2] }}</td>
-                <td>{{ viaje[3] }}</td>
-                <td style="color: #4cd964; font-weight: bold;">Bs. {{ "{:,.2f}".format(viaje[4]) }}</td>
-                <td><span style="color: #aaa; font-size: 13px;">{{ viaje[5] }}</span></td>
-                <td><span class="badge-pendiente">{{ viaje[6] }}</span></td>
-            </tr>
-            {% endfor %}
-        </tbody>
-    </table>
-    {% else %}
-    <p style="color:#888; margin: 10px 0;">No se han registrado solicitudes de viajes en el sistema aún.</p>
-    {% endif %}
-</div>
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Administración | Martillos & Ruedas</title>
+    <style>
+        body { background-color: #0b0b0b; color: #ffffff; font-family: sans-serif; padding: 25px; margin: 0; }
+        h1, h2, h3 { color: #ffeb3b; }
+        .admin-container { max-width: 1100px; margin: 0 auto; display: grid; grid-template-columns: 1fr; gap: 20px; padding: 20px; }
+        @media (min-width: 768px) {
+            .admin-container { grid-template-columns: 350px 1fr; }
+        }
+        .card { background: #161616; border: 1px solid #333; padding: 20px; border-radius: 10px; margin-bottom: 20px; box-shadow: 0 4px 6px rgba(0,0,0,0.3); }
+        .input-field { width: 100%; padding: 10px; margin: 6px 0 12px 0; background: #222; border: 1px solid #444; color: #fff; border-radius: 6px; box-sizing: border-box; }
+        .input-field:focus { border-color: #ffeb3b; outline: none; }
+        .btn { padding: 12px 20px; background: #ffeb3b; color: #000; border: none; font-weight: bold; cursor: pointer; border-radius: 6px; width: 100%; font-size: 15px; }
+        .btn:hover { background: #fbc02d; }
+        .btn-logout { background: #ff3b30; color:#fff; text-decoration:none; padding:10px 20px; border-radius:6px; font-weight:bold; display: inline-block; margin-bottom: 20px; }
+        .status { padding: 10px; margin-bottom: 15px; border-radius: 6px; text-align: center; font-weight: bold; background: #4cd964; color: #000; }
+        
+        /* Tablas */
+        .section-table { overflow-x: auto; background: #161616; border: 1px solid #333; border-radius: 10px; padding: 15px; }
+        table { width: 100%; border-collapse: collapse; text-align: left; }
+        th, td { padding: 12px; border-bottom: 1px solid #333; }
+        th { color: #ffeb3b; }
+        .badge-pendiente { background: #ff9500; color: #000; padding: 3px 8px; border-radius: 4px; font-size: 12px; font-weight: bold; }
+        .stats-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 20px; }
+        .stat-box { background: #222; padding: 15px; border-radius: 8px; text-align: center; border: 1px solid #333; }
+        .stat-box span { display: block; font-size: 24px; font-weight: bold; color: #ffeb3b; }
+    </style>
+</head>
+<body>
+    <div style="max-width: 1100px; margin: 0 auto; padding: 20px 20px 0 20px;">
+        <a href="/logout" class="btn-logout" style="float: right;">Salir del Sistema</a>
+        <h1>🛠️ Panel de Control General</h1>
+        <hr style="border-color: #333;">
+    </div>
+
+    <div class="admin-container">
+        <!-- BARRA LATERAL (REGISTROS Y ESTADÍSTICAS) -->
+        <div class="sidebar">
+            <div class="card">
+                <h3>📊 Resumen de Usuarios</h3>
+                <div class="stats-grid">
+                    <div class="stat-box">
+                        <span>{{ total_pasajeros if total_pasajeros is defined else 0 }}</span>
+                        Pasajeros
+                    </div>
+                    <div class="stat-box">
+                        <span>{{ total_conductores if total_conductores is defined else 0 }}</span>
+                        Conductores
+                    </div>
+                </div>
+            </div>
+
+            <div class="card">
+                <h3>🏍️ Registrar Nuevo Conductor</h3>
+                <form action="/admin/crear_conductor" method="POST">
+                    Nombre:<br>
+                    <input type="text" name="nombre" required class="input-field" placeholder="Ej: Franklin"><br>
+                    Apellido:<br>
+                    <input type="text" name="apellido" required class="input-field" placeholder="Ej: Garcia"><br>
+                    Cédula:<br>
+                    <input type="text" name="cedula" required class="input-field" placeholder="Ej: V-24205623"><br>
+                    Fecha de Nacimiento:<br>
+                    <input type="date" name="fecha_nacimiento" class="input-field"><br>
+                    Correo Electrónico (Para Login):<br>
+                    <input type="email" name="email" required class="input-field" placeholder="ejemplo@martillos.com"><br>
+                    Contraseña:<br>
+                    <input type="password" name="password" required class="input-field" placeholder="Clave de ingreso"><br>
+                    Placa de la Moto:<br>
+                    <input type="text" name="placa" required class="input-field" placeholder="Ej: AL6G72G"><br>
+                    Serial de Motor:<br>
+                    <input type="text" name="serial_motor" class="input-field" placeholder="Opcional"><br>
+                    Serial de Carrocería:<br>
+                    <input type="text" name="serial_carroceria" class="input-field" placeholder="Opcional"><br>
+                    <button type="submit" class="btn">Guardar Conductor</button>
+                </form>
+            </div>
+        </div>
+
+        <!-- CONTENIDO PRINCIPAL: HISTORIAL GENERAL DE VIAJES -->
+        <div class="main-content">
+            <h2>🚖 Historial General de Viajes</h2>
+            <div class="section-table">
+                {% if viajes %}
+                <table>
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Pasajero</th>
+                            <th>Origen</th>
+                            <th>Destino</th>
+                            <th>Monto</th>
+                            <th>Fecha y Hora</th>
+                            <th>Estado</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for viaje in viajes %}
+                        <tr>
+                            <td>{{ viaje[0] }}</td>
+                            <td><b>{{ viaje[1] }}</b></td>
+                            <td>{{ viaje[2] }}</td>
+                            <td>{{ viaje[3] }}</td>
+                            <td style="color: #4cd964; font-weight: bold;">Bs. {{ "{:,.2f}".format(viaje[4]) }}</td>
+                            <td><span style="color: #aaa; font-size: 13px;">{{ viaje[5] }}</span></td>
+                            <td><span class="badge-pendiente">{{ viaje[6] }}</span></td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+                {% else %}
+                <p style="color:#888; margin: 10px 0;">No se han registrado solicitudes de viajes en el sistema aún.</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const params = new URLSearchParams(window.location.search);
+        const status = params.get('status');
+        if (status === 'conductor_ok') {
+            alert('¡Conductor registrado de manera exitosa!');
+        }
+    </script>
+</body>
+</html>
