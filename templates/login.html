@@ -1,24 +1,161 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>Acceso | Martillos & Ruedas</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Iniciar Sesión | Martillos & Ruedas</title>
     <style>
-        body { background-color: #000; color: #fff; font-family: sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
-        .login-box { background: #111; padding: 40px; border-radius: 10px; border: 1px solid #ffeb3b; text-align: center; width: 300px; }
-        h1 { color: #ffeb3b; margin-bottom: 30px; }
-        input { width: 90%; padding: 12px; margin: 10px 0; border-radius: 5px; border: 1px solid #555; background: #222; color: #fff; }
-        .btn { background: #ffeb3b; color: #000; font-weight: bold; border: none; padding: 12px; width: 100%; border-radius: 5px; cursor: pointer; text-transform: uppercase; margin-top: 15px; }
+        body {
+            background: #000;
+            color: #fff;
+            font-family: sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            overflow: hidden;
+        }
+
+        /* Video de Introducción / Splash Screen */
+        #splash-screen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: #000;
+            z-index: 9999;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            transition: opacity 0.8s ease;
+        }
+        #splash-screen video {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        .btn-omitir {
+            position: absolute;
+            bottom: 30px;
+            right: 30px;
+            background: rgba(255,255,255,0.2);
+            color: #fff;
+            border: 1px solid #fff;
+            padding: 8px 15px;
+            cursor: pointer;
+            border-radius: 4px;
+            font-size: 12px;
+        }
+
+        /* Contenedor del Formulario */
+        .login-box {
+            background: #111;
+            padding: 30px;
+            border-radius: 12px;
+            border: 1px solid #ffeb3b;
+            width: 320px;
+            text-align: center;
+            box-shadow: 0 0 20px rgba(255, 235, 59, 0.15);
+        }
+        
+        /* Imagen Principal Dinámica */
+        .logo-img {
+            max-width: 120px;
+            margin-bottom: 15px;
+            border-radius: 8px;
+        }
+
+        .input-field {
+            width: 100%;
+            padding: 10px;
+            margin: 8px 0;
+            background: #222;
+            border: 1px solid #444;
+            color: #fff;
+            border-radius: 6px;
+            box-sizing: border-box;
+        }
+        .input-field:focus {
+            border-color: #ffeb3b;
+            outline: none;
+        }
+        .btn-submit {
+            width: 100%;
+            padding: 12px;
+            background: #ffeb3b;
+            color: #000;
+            border: none;
+            font-weight: bold;
+            font-size: 16px;
+            cursor: pointer;
+            border-radius: 6px;
+            margin-top: 10px;
+        }
     </style>
 </head>
 <body>
+
+    <!-- PANTALLA DE INTRO (VIDEO) -->
+    {% if config.video %}
+    <div id="splash-screen">
+        <video id="intro-video" autoplay muted playsinline>
+            <source src="{{ url_for('static', filename='uploads/' + config.video) }}" type="video/mp4">
+        </video>
+        <button class="btn-omitir" onclick="finalizarIntro()">Omitir Intro ✕</button>
+    </div>
+    {% endif %}
+
+    <!-- CONTENEDOR PRINCIPAL DE LOGIN -->
     <div class="login-box">
-        <h1>Martillos & Ruedas</h1>
-        <form action="/login" method="POST">
-            <input type="text" name="email" placeholder="Correo (o 'admin')" required>
-            <input type="password" name="password" placeholder="Contraseña" required>
-            <button type="submit" class="btn">Entrar</button>
+        <!-- Muestra la imagen animada subida por el admin o un texto si está vacío -->
+        {% if config.imagen %}
+            <img src="{{ url_for('static', filename='uploads/' + config.imagen) }}" class="logo-img" alt="Logo">
+        {% else %}
+            <h1 style="color:#ffeb3b; font-size:24px; margin-bottom:5px;">Martillos & Ruedas</h1>
+        {% endif %}
+        
+        <h3 style="color:#aaa; margin-top:0; font-weight:normal; font-size:14px;">Transporte Local Seguro</h3>
+        
+        <form method="POST">
+            <div style="text-align:left; font-size:14px; color:#ccc;">
+                Correo Electrónico:<br>
+                <input type="email" name="email" required class="input-field" placeholder="tu@correo.com"><br>
+                Contraseña:<br>
+                <input type="password" name="password" required class="input-field" placeholder="••••••••"><br>
+            </div>
+            <button type="submit" class="btn-submit">ENTRAR</button>
+            <p style="font-size:12px; margin-top:20px; color:#aaa;">
+                ¿Eres pasajero nuevo? <a href="/registro_pasajero" style="color:#ffeb3b; text-decoration:none; font-weight:bold;">Regístrate aquí</a>
+            </p>
         </form>
     </div>
+
+    <script>
+        const video = document.getElementById('intro-video');
+        const splash = document.getElementById('splash-screen');
+
+        if (video) {
+            // Cuando termine el video de forma natural, oculta la intro
+            video.onended = function() {
+                finalizarIntro();
+            };
+        }
+
+        function finalizarIntro() {
+            if (splash) {
+                splash.style.opacity = '0';
+                setTimeout(() => {
+                    splash.style.display = 'none';
+                }, 800);
+            }
+        }
+        
+        // Resguardo: si por alguna razón el video no carga, no bloquear al usuario
+        setTimeout(() => {
+            finalizarIntro();
+        }, 6000); // Límite máximo automático de 6 segundos
+    </script>
 </body>
 </html>
