@@ -28,8 +28,8 @@
         <div id="ride-alert">
             <h3 style="margin:0 0 5px 0; text-align: center;">¡NUEVA SOLICITUD!</h3>
             <div class="info-viaje">Pasajero: <b id="info-pasajero">---</b></div>
-            <div class="info-viaje">Recoger en: <b id="info-origen">---</b></div>
-            <div class="info-viaje">Destino: <b id="info-destino">---</b></div>
+            <div class="info-viaje">Punto de Salida: <b id="info-origen">---</b></div>
+            <div class="info-viaje">Dirección de Destino: <b id="info-destino">---</b></div>
             <p style="margin: 10px 0 5px 0; font-size: 18px; font-weight: bold; text-align: center;">Tarifa: $2.00</p>
             <button class="btn-accept" id="btn-accept" onclick="acceptRide()">Aceptar y ver ruta</button>
         </div>
@@ -42,7 +42,6 @@
         // Mapa centrado en San Juan de los Morros
         var map = L.map('map').setView([9.9120, -67.3540], 15);
         
-        // Capa de mapa oscuro elegante para hacer juego con tu diseño
         L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
             attribution: '&copy; OpenStreetMap contributors &copy; CARTO'
         }).addTo(map);
@@ -57,7 +56,8 @@
         var driverMarker = L.marker([9.9120, -67.3540], {icon: driverIcon}).addTo(map).bindPopup("Tu ubicación actual").openPopup();
         
         let currentRideId = null;
-        let customerMarker = null; // Variable para controlar el marcador del cliente en el mapa
+        let customerMarker = null; 
+        let destinationMarker = null; // Nuevo marcador para el destino
 
         // Preguntar al servidor cada 3 segundos si hay viajes nuevos
         setInterval(() => {
@@ -68,32 +68,38 @@
                     if(data.status === 'found') {
                         currentRideId = data.ride_id;
                         
-                        // Rellenar los textos de la alerta con los datos de la Base de Datos
+                        // Vinculamos y mostramos los textos reales escritos por el cliente
                         document.getElementById('info-pasajero').innerText = data.pasajero;
                         document.getElementById('info-origen').innerText = data.origen;
                         document.getElementById('info-destino').innerText = data.destino;
                         
-                        // Alternar vistas
                         document.getElementById('status-indicator').style.display = 'none';
                         document.getElementById('ride-alert').style.display = 'block';
                         
-                        // PINTAR AL CLIENTE EN EL MAPA: 
-                        // Simulamos una coordenada del cliente en San Juan de los Morros para esta prueba
+                        // Limpiamos marcadores anteriores si existen
+                        if(customerMarker) map.removeLayer(customerMarker);
+                        if(destinationMarker) map.removeLayer(destinationMarker);
+                        
+                        // Ubicación simulada del Cliente (Punto Rojo)
                         let clientLat = 9.9165;
                         let clientLng = -67.3595;
                         
-                        if(customerMarker) map.removeLayer(customerMarker);
+                        // Ubicación simulada del Destino (Punto Verde) para que vea a dónde va
+                        let destLat = 9.9220;
+                        let destLng = -67.3480;
                         
-                        // Marcador rojo parpadeante/destacado para el pasajero
+                        // 1. Marcador de Salida (Rojo)
                         customerMarker = L.circleMarker([clientLat, clientLng], {
-                            color: '#ff3333',
-                            fillColor: '#ff3333',
-                            fillOpacity: 0.7,
-                            radius: 12
-                        }).addTo(map).bindPopup('<b>Recoger aquí a:</b><br>' + data.origen).openPopup();
+                            color: '#ff3333', fillColor: '#ff3333', fillOpacity: 0.7, radius: 10
+                        }).addTo(map).bindPopup('<b>Punto de Recogida:</b><br>' + data.origen).openPopup();
                         
-                        // Auto-ajustar el zoom del mapa para mostrar a ambos en pantalla inmediatamente
-                        var group = new L.featureGroup([driverMarker, customerMarker]);
+                        // 2. Marcador de Destino (Verde)
+                        destinationMarker = L.circleMarker([destLat, destLng], {
+                            color: '#2ecc71', fillColor: '#2ecc71', fillOpacity: 0.7, radius: 10
+                        }).addTo(map).bindPopup('<b>Llevar a:</b><br>' + data.destino);
+                        
+                        // Auto-ajustar el mapa para que muestre el Conductor, el Origen y el Destino al mismo tiempo
+                        var group = new L.featureGroup([driverMarker, customerMarker, destinationMarker]);
                         map.fitBounds(group.getBounds().pad(0.3));
                         
                         // Sonido de alerta
@@ -117,14 +123,10 @@
             .then(r => r.json())
             .then(data => {
                 if(data.success) {
-                    alert("¡Viaje Aceptado! Dirígete al punto rojo en el mapa para buscar al cliente.");
-                    
-                    // Modificamos el estado visual pero mantenemos el marcador en el mapa para guiar al conductor
+                    alert("¡Viaje Aceptado! Dirígete al punto rojo y llévalo al punto verde.");
                     document.getElementById('ride-alert').style.display = 'none';
                     document.getElementById('status-indicator').innerText = "En viaje activo 🏍️";
                     document.getElementById('status-indicator').style.display = 'inline-block';
-                    
-                    // Nota: En la siguiente fase podemos agregar el botón "Finalizar Viaje" para limpiar el mapa
                 } else {
                     alert("El viaje ya no está disponible.");
                     resetPanel();
@@ -137,6 +139,7 @@
         function resetPanel() {
             currentRideId = null;
             if(customerMarker) map.removeLayer(customerMarker);
+            if(destinationMarker) map.removeLayer(destinationMarker);
             document.getElementById('ride-alert').style.display = 'none';
             document.getElementById('status-indicator').innerText = "Buscando pasajeros... 📡";
             document.getElementById('status-indicator').style.display = 'inline-block';
