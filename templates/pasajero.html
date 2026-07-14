@@ -5,14 +5,28 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Pasajero | Martillos & Ruedas</title>
     <style>
-        body { display: flex; justify-content: center; align-items: center; height: 100vh; background-color: #000; margin: 0; font-family: sans-serif; color: #fff; }
+        body { display: flex; flex-direction: column; justify-content: center; align-items: center; height: 100vh; background-color: #000; margin: 0; font-family: sans-serif; color: #fff; }
         
         /* Tarjeta de perfil en esquina */
         .perfil-info { position: absolute; top: 15px; left: 15px; background: #111; padding: 12px; border-radius: 8px; border: 1px solid #333; font-size: 14px; }
         .perfil-info b { color: #ffeb3b; }
         
-        .boton-gigante { background-color: #ffeb3b; color: #000; border: none; border-radius: 50%; width: 250px; height: 250px; font-size: 24px; font-weight: bold; cursor: pointer; box-shadow: 0 0 20px rgba(255, 235, 59, 0.5); transition: 0.2s; text-transform: uppercase; }
+        .boton-gigante { background-color: #ffeb3b; color: #000; border: none; border-radius: 50%; width: 250px; height: 250px; font-size: 24px; font-weight: bold; cursor: pointer; box-shadow: 0 0 20px rgba(255, 235, 59, 0.5); transition: 0.2s; text-transform: uppercase; margin-bottom: 20px; }
         .boton-gigante:active { transform: scale(0.95); }
+
+        /* Contenedor del Buscador de Destino */
+        .buscador-contenedor { display: none; background: #111; border: 2px solid #ffeb3b; padding: 20px; border-radius: 12px; width: 90%; max-width: 400px; box-shadow: 0 0 20px rgba(255,235,59,0.2); box-sizing: border-box; }
+        .buscador-contenedor h3 { margin: 0 0 10px 0; color: #ffeb3b; text-align: center; }
+        
+        .input-busqueda { width: 100%; padding: 12px; background: #222; border: 1px solid #444; color: #fff; border-radius: 6px; font-size: 16px; box-sizing: border-box; }
+        .input-busqueda:focus { border-color: #ffeb3b; outline: none; }
+
+        /* Lista de sugerencias desplegable */
+        .sugerencias-lista { background: #222; border: 1px solid #444; border-radius: 6px; max-height: 200px; overflow-y: auto; margin-top: 5px; padding: 0; list-style: none; display: none; }
+        .sugerencias-lista li { padding: 10px 15px; cursor: pointer; border-bottom: 1px solid #333; font-size: 14px; color: #ddd; }
+        .sugerencias-lista li:hover { background: #ffeb3b; color: #000; }
+
+        .btn-cancelar { background: transparent; color: #aaa; border: none; margin-top: 10px; cursor: pointer; width: 100%; text-align: center; font-size: 14px; }
     </style>
 </head>
 <body>
@@ -21,50 +35,104 @@
         Saldo: <b>${{ "%.2f"|format(session.get('balance', 0.0)) }}</b>
     </div>
 
-    <!-- Modificamos la función para que ejecute nuestro script -->
-    <button class="boton-gigante" onclick="solicitarViaje()">
+    <!-- Botón Gigante Inicial -->
+    <button id="btnPedir" class="boton-gigante" onclick="mostrarBuscador()">
         PEDIR<br>MOTO
     </button>
 
+    <!-- Caja de Búsqueda Interactiva con Sugerencias -->
+    <div id="buscadorViaje" class="buscador-contenedor">
+        <h3>¿A dónde te diriges?</h3>
+        <input type="text" id="inputDestino" class="input-busqueda" placeholder="Ej: Plaza Bolívar, San Juan de los Morros..." oninput="buscarDirecciones(this.value)" autocomplete="off">
+        <ul id="listaSugerencias" class="sugerencias-lista"></ul>
+        <button class="btn-cancelar" onclick="ocultarBuscador()">Cancelar</button>
+    </div>
+
     <script>
-        function solicitarViaje() {
-            // Preguntamos dinámicamente el destino
-            const destino = prompt("¿A dónde te diriges?");
+        let timeoutBusqueda = null;
+
+        function mostrarBuscador() {
+            document.getElementById('btnPedir').style.display = 'none';
+            document.getElementById('buscadorViaje').style.display = 'block';
+            document.getElementById('inputDestino').focus();
+        }
+
+        function ocultarBuscador() {
+            document.getElementById('buscadorViaje').style.display = 'none';
+            document.getElementById('btnPedir').style.display = 'block';
+            document.getElementById('inputDestino').value = '';
+            document.getElementById('listaSugerencias').style.display = 'none';
+        }
+
+        // Función que consulta a OpenStreetMap de forma asíncrona mientras el usuario escribe
+        function buscarDirecciones(texto) {
+            clearTimeout(timeoutBusqueda);
+            const lista = document.getElementById('listaSugerencias');
             
-            // Si el usuario cancela o lo deja vacío, detenemos el envío
-            if (!destino || destino.trim() === "") {
+            if (!texto || texto.trim().length < 3) {
+                lista.innerHTML = '';
+                lista.style.display = 'none';
                 return;
             }
 
-            // Creamos un formulario temporal en el navegador para enviar los datos por POST a Flask
+            // Esperamos 400ms tras dejar de escribir para no saturar con peticiones continuas (Debounce)
+            timeoutBusqueda = setTimeout(() => {
+                // Enfocamos la búsqueda prioritariamente en Venezuela para mejores sugerencias locales
+                const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(texto)}&countrycodes=ve&limit=5`;
+
+                fetch(url, {
+                    headers: { 'Accept-Language': 'es' }
+                })
+                .then(res => res.json())
+                .then(data => {
+                    lista.innerHTML = '';
+                    if (data.length > 0) {
+                        data.forEach(item => {
+                            const li = document.createElement('li');
+                            // Mostramos el nombre descriptivo del lugar
+                            li.innerText = item.display_name;
+                            li.onclick = () => seleccionarDestino(item.display_name);
+                            lista.appendChild(li);
+                        });
+                        lista.style.display = 'block';
+                    } else {
+                        lista.style.display = 'none';
+                    }
+                })
+                .catch(err => console.error("Error al buscar direcciones:", err));
+            }, 400);
+        }
+
+        // Ejecuta el envío automático del formulario a Flask cuando el usuario hace clic en una sugerencia
+        function seleccionarDestino(direccionCompleta) {
+            document.getElementById('inputDestino').value = direccionCompleta;
+            document.getElementById('listaSugerencias').style.display = 'none';
+
+            // Creamos el formulario virtual POST hacia nuestra ruta de Flask
             const form = document.createElement('form');
             form.method = 'POST';
             form.action = '/solicitar_viaje';
 
-            // 1. Enviamos el nombre del Pasajero (obtenido de la sesión)
             const inputPasajero = document.createElement('input');
             inputPasajero.type = 'hidden';
             inputPasajero.name = 'pasajero';
-            inputPasajero.value = "{{ session.get('email', 'Invitado') }}";
+            inputPasajero.value = "Pasajero Invitado"; 
             form.appendChild(inputPasajero);
 
-            // 2. Enviamos el Origen (por defecto ponemos Ubicación Actual)
             const inputOrigen = document.createElement('input');
             inputOrigen.type = 'hidden';
             inputOrigen.name = 'origen';
-            inputOrigen.value = "Mi ubicación actual";
+            inputOrigen.value = "Plaza Bolívar, San Juan de los Morros"; // Dirección base inicial
             form.appendChild(inputOrigen);
 
-            // 3. Enviamos el Destino ingresado en el prompt
             const inputDestino = document.createElement('input');
             inputDestino.type = 'hidden';
             inputDestino.name = 'destino';
-            inputDestino.value = destino;
+            inputDestino.value = direccionCompleta;
             form.appendChild(inputDestino);
 
-            // Añadimos el formulario al documento y lo enviamos
             document.body.appendChild(form);
-            alert("¡Buscando conductor cercano para tu viaje a: " + destino + "!");
+            alert("¡Buscando conductor cercano!\nDestino seleccionado: " + direccionCompleta);
             form.submit();
         }
     </script>
