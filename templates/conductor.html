@@ -2,151 +2,40 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>Panel de Conductor | Martillos & Ruedas</title>
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Conductor | Martillos & Ruedas</title>
     <style>
-        body, html { margin: 0; padding: 0; height: 100%; font-family: sans-serif; background-color: #000; color: #fff; }
-        #map { height: 60vh; width: 100%; }
-        .panel { height: 40vh; background: #111; padding: 20px; text-align: center; border-top: 4px solid #ffeb3b; box-sizing: border-box; position: relative; }
-        h2 { color: #ffeb3b; margin-top: 0; }
-        .status { padding: 10px; background: #222; border-radius: 5px; display: inline-block; border: 1px solid #ffeb3b; color: #ffeb3b; font-weight: bold; }
-        .btn-logout { position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%); color: #ccc; text-decoration: none; border-bottom: 1px solid #ccc; padding-bottom: 2px; }
-        
-        /* Modal de Alerta de Viaje */
-        #ride-alert { display: none; background: #ffeb3b; color: #000; padding: 15px; border-radius: 10px; margin-top: 10px; box-shadow: 0 4px 15px rgba(255, 235, 59, 0.4); text-align: left; }
-        .btn-accept { background: #000; color: #ffeb3b; font-size: 18px; font-weight: bold; border: none; padding: 12px 25px; border-radius: 5px; cursor: pointer; text-transform: uppercase; width: 100%; margin-top: 10px; }
-        .info-viaje { margin: 5px 0; font-size: 15px; }
-        .info-viaje b { color: #000; }
+        body { background-color: #0b0b0b; color: #ffffff; font-family: sans-serif; padding: 25px; }
+        h1, h2, h3 { color: #ffeb3b; }
+        .container { max-width: 600px; margin: 0 auto; }
+        .card { background: #161616; border: 1px solid #333; padding: 20px; border-radius: 10px; margin-bottom: 15px; }
+        .btn-logout { float: right; background: #ff3b30; color:#fff; text-decoration:none; padding:10px 20px; border-radius:6px; font-weight:bold; }
+        .btn-accept { padding: 10px 15px; background: #ffeb3b; color: #000; border: none; font-weight: bold; cursor: pointer; border-radius: 6px; width: 100%; margin-top: 10px; }
+        .price-badge { background-color: #1e3d2f; color: #4cd964; padding: 5px 10px; border-radius: 5px; font-weight: bold; font-size: 18px; display: inline-block; margin-top: 5px; }
     </style>
 </head>
 <body>
-    <div id="map"></div>
-    <div class="panel">
-        <h2>Motorizado: {{ driver_name if driver_name else 'Disponible' }}</h2>
-        <div class="status" id="status-indicator">Buscando pasajeros... 📡</div>
-        
-        <div id="ride-alert">
-            <h3 style="margin:0 0 5px 0; text-align: center;">¡NUEVA SOLICITUD!</h3>
-            <div class="info-viaje">Pasajero: <b id="info-pasajero">---</b></div>
-            <div class="info-viaje">Punto de Salida: <b id="info-origen">---</b></div>
-            <div class="info-viaje">Dirección de Destino: <b id="info-destino">---</b></div>
-            <p style="margin: 10px 0 5px 0; font-size: 18px; font-weight: bold; text-align: center;">Tarifa: $2.00</p>
-            <button class="btn-accept" id="btn-accept" onclick="acceptRide()">Aceptar y ver ruta</button>
+    <div class="container">
+        <a href="/logout" class="btn-logout">Salir</a>
+        <h1>Conductor: {{ driver_name }}</h1>
+        <h2>🚖 Viajes Disponibles (Prueba en vivo)</h2>
+        <p style="color: #aaa;">Aquí aparecen las solicitudes de San Juan de los Morros:</p>
+
+        <div id="lista-viajes">
+            {% if viajes %}
+                {% for viaje in viajes %}
+                <div class="card">
+                    <p style="margin: 0; font-size: 14px; color: #888;">Viaje #{{ viaje[0] }} • Solicitado por: <b>{{ viaje[1] }}</b></p>
+                    <p style="margin: 10px 0 5px 0;">📍 <b>Origen:</b> {{ viaje[2] }}</p>
+                    <p style="margin: 0 0 10px 0;">🏁 <b>Destino:</b> {{ viaje[3] }}</p>
+                    <div class="price-badge">Bs. {{ "{:,.2f}".format(viaje[4]) }}</div>
+                    <button class="btn-accept" onclick="alert('¡Viaje #{{ viaje[0] }} aceptado! Iniciando ruta hacia: {{ viaje[2] }}')">Aceptar Viaje</button>
+                </div>
+                {% endfor %}
+            {% else %}
+                <p style="color: #666; text-align: center; padding: 30px;">Esperando solicitudes de pasajeros en San Juan de los Morros...</p>
+            {% endif %}
         </div>
-
-        <a href="/logout" class="btn-logout">Cerrar Sesión</a>
     </div>
-
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    <script>
-        // Mapa centrado en San Juan de los Morros
-        var map = L.map('map').setView([9.9120, -67.3540], 15);
-        
-        L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
-            attribution: '&copy; OpenStreetMap contributors &copy; CARTO'
-        }).addTo(map);
-        
-        // Icono del motorizado (Punto central amarillo)
-        var driverIcon = L.divIcon({
-            className: 'custom-icon',
-            html: "<div style='background-color:#000; width:20px; height:20px; border-radius:50%; border:3px solid #ffeb3b;'></div>",
-            iconSize: [26, 26], iconAnchor: [13, 13]
-        });
-        
-        var driverMarker = L.marker([9.9120, -67.3540], {icon: driverIcon}).addTo(map).bindPopup("Tu ubicación actual").openPopup();
-        
-        let currentRideId = null;
-        let customerMarker = null; 
-        let destinationMarker = null; // Nuevo marcador para el destino
-
-        // Preguntar al servidor cada 3 segundos si hay viajes nuevos
-        setInterval(() => {
-            if(!currentRideId) {
-                fetch('/api/check_ride')
-                .then(r => r.json())
-                .then(data => {
-                    if(data.status === 'found') {
-                        currentRideId = data.ride_id;
-                        
-                        // Vinculamos y mostramos los textos reales escritos por el cliente
-                        document.getElementById('info-pasajero').innerText = data.pasajero;
-                        document.getElementById('info-origen').innerText = data.origen;
-                        document.getElementById('info-destino').innerText = data.destino;
-                        
-                        document.getElementById('status-indicator').style.display = 'none';
-                        document.getElementById('ride-alert').style.display = 'block';
-                        
-                        // Limpiamos marcadores anteriores si existen
-                        if(customerMarker) map.removeLayer(customerMarker);
-                        if(destinationMarker) map.removeLayer(destinationMarker);
-                        
-                        // Ubicación simulada del Cliente (Punto Rojo)
-                        let clientLat = 9.9165;
-                        let clientLng = -67.3595;
-                        
-                        // Ubicación simulada del Destino (Punto Verde) para que vea a dónde va
-                        let destLat = 9.9220;
-                        let destLng = -67.3480;
-                        
-                        // 1. Marcador de Salida (Rojo)
-                        customerMarker = L.circleMarker([clientLat, clientLng], {
-                            color: '#ff3333', fillColor: '#ff3333', fillOpacity: 0.7, radius: 10
-                        }).addTo(map).bindPopup('<b>Punto de Recogida:</b><br>' + data.origen).openPopup();
-                        
-                        // 2. Marcador de Destino (Verde)
-                        destinationMarker = L.circleMarker([destLat, destLng], {
-                            color: '#2ecc71', fillColor: '#2ecc71', fillOpacity: 0.7, radius: 10
-                        }).addTo(map).bindPopup('<b>Llevar a:</b><br>' + data.destino);
-                        
-                        // Auto-ajustar el mapa para que muestre el Conductor, el Origen y el Destino al mismo tiempo
-                        var group = new L.featureGroup([driverMarker, customerMarker, destinationMarker]);
-                        map.fitBounds(group.getBounds().pad(0.3));
-                        
-                        // Sonido de alerta
-                        let audio = new Audio('https://actions.google.com/sounds/v1/alarms/beep_short.ogg');
-                        audio.play().catch(e => console.log("Audio bloqueado"));
-                    }
-                });
-            }
-        }, 3000);
-
-        function acceptRide() {
-            let btn = document.getElementById('btn-accept');
-            btn.innerHTML = "Procesando...";
-            btn.style.backgroundColor = "#555";
-            
-            fetch('/api/accept_ride', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({ ride_id: currentRideId })
-            })
-            .then(r => r.json())
-            .then(data => {
-                if(data.success) {
-                    alert("¡Viaje Aceptado! Dirígete al punto rojo y llévalo al punto verde.");
-                    document.getElementById('ride-alert').style.display = 'none';
-                    document.getElementById('status-indicator').innerText = "En viaje activo 🏍️";
-                    document.getElementById('status-indicator').style.display = 'inline-block';
-                } else {
-                    alert("El viaje ya no está disponible.");
-                    resetPanel();
-                }
-            }).catch(err => {
-                resetPanel();
-            });
-        }
-        
-        function resetPanel() {
-            currentRideId = null;
-            if(customerMarker) map.removeLayer(customerMarker);
-            if(destinationMarker) map.removeLayer(destinationMarker);
-            document.getElementById('ride-alert').style.display = 'none';
-            document.getElementById('status-indicator').innerText = "Buscando pasajeros... 📡";
-            document.getElementById('status-indicator').style.display = 'inline-block';
-            let btn = document.getElementById('btn-accept');
-            btn.innerHTML = "Aceptar y ver ruta";
-            btn.style.backgroundColor = "#000";
-        }
-    </script>
 </body>
 </html>
