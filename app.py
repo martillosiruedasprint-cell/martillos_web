@@ -1,248 +1,268 @@
-from flask import Flask, render_template, request, session, redirect, url_for, abort
-import sqlite3
-from datetime import datetime
 import os
-from werkzeug.security import generate_password_hash, check_password_hash
+import sqlite3
+from flask import Flask, render_template, request, redirect, url_for, session, flash
 
 app = Flask(__name__)
-app.secret_key = os.environ.get('SECRET_KEY', 'martillos_seguridad_original_2026')
+# Usamos una clave secreta segura para el manejo de sesiones en producción
+app.secret_key = os.environ.get('SECRET_KEY', 'martillos_ruedas_secreto_2026')
 
-DB_PATH = 'database.db'
+DB_NAME = "database.db"
 
+def get_db_connection():
+    conn = sqlite3.connect(DB_NAME)
+    conn.row_factory = sqlite3.Row
+    return conn
+
+# ==========================================
+# INICIALIZACIÓN DE LA BASE DE DATOS
+# ==========================================
 def init_db():
-    conn = sqlite3.connect(DB_PATH)
+    conn = get_db_connection()
     cursor = conn.cursor()
     
-    # 1. Tabla de Usuarios
+    # Tabla de Usuarios (Administradores, Pasajeros, Conductores)
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS usuarios (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             nombre TEXT NOT NULL,
-            apellido TEXT DEFAULT '',
-            cedula TEXT DEFAULT '',
-            fecha_nacimiento TEXT DEFAULT '',
+            apellido TEXT NOT NULL,
+            cedula TEXT UNIQUE NOT NULL,
+            fecha_nacimiento TEXT,
             email TEXT UNIQUE NOT NULL,
             password TEXT NOT NULL,
-            rol TEXT NOT NULL, -- 'pasajero', 'conductor', 'admin'
-            placa TEXT DEFAULT '',
-            serial_motor TEXT DEFAULT '',
-            serial_carroceria TEXT DEFAULT ''
+            rol TEXT NOT NULL, -- 'admin', 'pasajero', 'conductor'
+            placa TEXT,        -- Solo para conductores
+            serial_motor TEXT, -- Solo para conductores
+            serial_carroceria TEXT -- Solo para conductores
         )
     ''')
     
-    # 2. Tabla de Viajes (Con monto en Bs.)
+    # Tabla de Solicitudes de Viajes
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS viajes (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
-            pasajero_id INTEGER NOT NULL,
+            pasajero_id INTEGER,
             origen TEXT NOT NULL,
             destino TEXT NOT NULL,
-            monto REAL NOT NULL,
-            fecha TEXT NOT NULL,
-            estado TEXT DEFAULT 'Pendiente',
-            FOREIGN KEY(pasajero_id) REFERENCES usuarios(id)
+            monto REAL DEFAULT 700.0,
+            fecha_hora TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            estado TEXT DEFAULT 'Pendiente', -- 'Pendiente', 'Aceptado', 'Completado'
+            conductor_id INTEGER,
+            FOREIGN KEY(pasajero_id) REFERENCES usuarios(id),
+            FOREIGN KEY(conductor_id) REFERENCES usuarios(id)
         )
     ''')
     
-    # Crear Administrador inicial si no existe
-    cursor.execute("SELECT * FROM usuarios WHERE email = 'admin@martillos.com'")
+    # Insertar administrador por defecto si no existe ninguno
+    cursor.execute("SELECT * FROM usuarios WHERE rol = 'admin'")
     if not cursor.fetchone():
-        hashed_pw = generate_password_hash('admin123')
-        cursor.execute("INSERT INTO usuarios (nombre, email, password, rol) VALUES (?, ?, ?, ?)",
-                       ('Administrador', 'admin@martillos.com', hashed_pw, 'admin'))
-                       
+        cursor.execute('''
+            INSERT INTO usuarios (nombre, apellido, cedula, email, password, rol)
+            VALUES ('Admin', 'Martillos', 'V-00000000', 'admin@martillos.com', 'admin123', 'admin')
+        ''')
+        
     conn.commit()
     conn.close()
 
 init_db()
 
-def verificar_autenticacion(rol_requerido):
-    if 'user_id' not in session:
-        return False
-    if session.get('rol') != rol_requerido:
-        return False
-    return True
+# ==========================================
+# MIDDLEWARE / CONTROL DE ACCESO (PROTECCIÓN)
+# ==========================================
+@app.before_request
+def verificar_sesion():
+    # Rutas públicas que no requieren autenticación
+    rutas_publicas = ['login', 'registro', 'static']
+    
+    # Si la petición va a una ruta pública, la dejamos pasar
+    if request.endpoint in rutas_publicas or not request.endpoint:
+        return
+
+    # Si no hay sesión activa, redirigir obligatoriamente al Login
+    if 'usuario_id' not in session:
+        return redirect(url_for('login'))
+
+# ==========================================
+# RUTAS DE AUTENTICACIÓN
+# ==========================================
 
 @app.route('/')
 def index():
-    if 'user_id' not in session:
-        return redirect('/login')
-    
-    rol = session.get('rol')
-    if rol == 'admin': 
-        return redirect('/admin_historial')
-    if rol == 'conductor': 
-        return redirect('/conductor')
-    return redirect('/pasajero')
+    # Redirección inteligente según el rol que tenga guardado en sesión
+    if 'usuario_id' in session:
+        rol = session.get('rol')
+        if rol == 'admin':
+            return redirect(url_for('admin_historial'))
+        elif rol == 'conductor':
+            return redirect(url_for('conductor_panel'))
+        elif rol == 'pasajero':
+            return redirect(url_for('pasajero_panel'))
+    return redirect(url_for('login'))
+
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     if request.method == 'POST':
-        email = request.form.get('email').strip()
-        password = request.form.get('password')
+        email = request.form['email'].strip()
+        password = request.form['password'].strip()
         
-        conn = sqlite3.connect(DB_PATH)
-        cursor = conn.cursor()
-        cursor.execute("SELECT id, nombre, email, password, rol FROM usuarios WHERE email = ?", (email,))
-        user = cursor.fetchone()
+        conn = get_db_connection()
+        user = conn.execute('SELECT * FROM usuarios WHERE email = ? AND password = ?', (email, password)).fetchone()
         conn.close()
         
-        if user and check_password_hash(user[3], password):
-            session.clear()
-            session['user_id'] = user[0]
-            session['nombre'] = user[1]
-            session['email'] = user[2]
-            session['rol'] = user[4]
-            return redirect('/')
-        return "Credenciales inválidas. <a href='/login'>Intentar de nuevo</a>"
-        
+        if user:
+            session['usuario_id'] = user['id']
+            session['nombre'] = user['nombre']
+            session['rol'] = user['rol']
+            
+            # Redireccionar según rol tras un inicio de sesión exitoso
+            if user['rol'] == 'admin':
+                return redirect(url_for('admin_historial'))
+            elif user['rol'] == 'conductor':
+                return redirect(url_for('conductor_panel'))
+            else:
+                return redirect(url_for('pasajero_panel'))
+        else:
+            flash("Credenciales incorrectas. Inténtalo de nuevo.")
+            return render_template('login.html', error="Correo o contraseña incorrectos.")
+            
     return render_template('login.html')
 
-@app.route('/registro_pasajero', methods=['GET', 'POST'])
-def registro_pasajero():
+
+@app.route('/registro', methods=['GET', 'POST'])
+def registro():
     if request.method == 'POST':
-        nombre = request.form.get('nombre').strip()
-        email = request.form.get('email').strip()
-        password = request.form.get('password')
+        nombre = request.form['nombre'].strip()
+        apellido = request.form['apellido'].strip()
+        cedula = request.form['cedula'].strip()
+        email = request.form['email'].strip()
+        password = request.form['password'].strip()
         
-        if not nombre or not email or not password:
-            return "Todos los campos son obligatorios."
-            
-        hashed_pw = generate_password_hash(password)
+        conn = get_db_connection()
         try:
-            conn = sqlite3.connect(DB_PATH)
-            cursor = conn.cursor()
-            cursor.execute("INSERT INTO usuarios (nombre, email, password, rol) VALUES (?, ?, ?, ?)",
-                           (nombre, email, hashed_pw, 'pasajero'))
+            conn.execute('''
+                INSERT INTO usuarios (nombre, apellido, cedula, email, password, rol)
+                VALUES (?, ?, ?, ?, ?, 'pasajero')
+            ''', (nombre, apellido, cedula, email, password))
             conn.commit()
             conn.close()
-            return "¡Registro exitoso! <a href='/login'>Inicia sesión aquí</a>"
+            return redirect(url_for('login', registro='ok'))
         except sqlite3.IntegrityError:
-            return "El correo ya se encuentra registrado."
+            conn.close()
+            return render_template('registro.html', error="La cédula o el correo ya se encuentran registrados.")
             
-    return render_template('registro_pasajero.html')
+    return render_template('registro.html')
 
-@app.route('/pasajero')
-def pasajero():
-    if not verificar_autenticacion('pasajero'): 
-        return redirect('/login')
-        
-    conn = sqlite3.connect(DB_PATH)
-    cursor = conn.cursor()
-    cursor.execute("SELECT nombre FROM usuarios WHERE id = ?", (session['user_id'],))
-    usuario = cursor.fetchone()
-    conn.close()
-    
-    nombre_real = usuario[0] if usuario else "Pasajero"
-    return render_template('pasajero.html', nombre=nombre_real)
-
-@app.route('/solicitar_viaje', methods=['POST'])
-def solicitar_viaje():
-    if not verificar_autenticacion('pasajero'): 
-        return redirect('/login')
-        
-    usuario_id = session['user_id']
-    origen = request.form.get('origen')
-    destino = request.form.get('destino')
-    monto_raw = request.form.get('monto')
-    fecha = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-    
-    try:
-        monto = float(monto_raw)
-    except (TypeError, ValueError):
-        return redirect('/pasajero?status=error_monto')
-    
-    # Validación del rango en Bs.
-    if monto < 1000 or monto > 10000:
-        return redirect('/pasajero?status=limite_monto')
-    
-    if origen and destino:
-        conn = sqlite3.connect(DB_PATH)
-        cursor = conn.cursor()
-        cursor.execute('INSERT INTO viajes (pasajero_id, origen, destino, monto, fecha) VALUES (?, ?, ?, ?, ?)', 
-                       (usuario_id, origen, destino, monto, fecha))
-        conn.commit()
-        conn.close()
-        return redirect('/pasajero?status=success')
-        
-    return redirect('/pasajero?status=error')
-
-@app.route('/admin_historial')
-def admin_historial():
-    if not verificar_autenticacion('admin'): 
-        return redirect('/login')
-    
-    conn = sqlite3.connect(DB_PATH)
-    cursor = conn.cursor()
-    
-    # Historial de viajes con montos en Bs.
-    cursor.execute('''
-        SELECT viajes.id, usuarios.nombre, viajes.origen, viajes.destino, viajes.monto, viajes.fecha, viajes.estado 
-        FROM viajes JOIN usuarios ON viajes.pasajero_id = usuarios.id ORDER BY viajes.id DESC
-    ''')
-    viajes = cursor.fetchall()
-    
-    cursor.execute("SELECT COUNT(*) FROM usuarios WHERE rol = 'pasajero'")
-    total_pasajeros = cursor.fetchone()[0]
-    
-    cursor.execute("SELECT COUNT(*) FROM usuarios WHERE rol = 'conductor'")
-    total_conductores = cursor.fetchone()[0]
-    
-    conn.close()
-    return render_template('admin_historial.html', viajes=viajes, total_pasajeros=total_pasajeros, total_conductores=total_conductores)
-
-@app.route('/admin/crear_conductor', methods=['POST'])
-def crear_conductor():
-    if not verificar_autenticacion('admin'): 
-        abort(403)
-    
-    nombre = request.form.get('nombre')
-    apellido = request.form.get('apellido')
-    cedula = request.form.get('cedula')
-    fecha_nacimiento = request.form.get('fecha_nacimiento')
-    email = request.form.get('email')
-    password = request.form.get('password')
-    placa = request.form.get('placa')
-    serial_motor = request.form.get('serial_motor')
-    serial_carroceria = request.form.get('serial_carroceria')
-    
-    hashed_pw = generate_password_hash(password)
-    try:
-        conn = sqlite3.connect(DB_PATH)
-        cursor = conn.cursor()
-        cursor.execute('''
-            INSERT INTO usuarios (nombre, apellido, cedula, fecha_nacimiento, email, password, rol, placa, serial_motor, serial_carroceria) 
-            VALUES (?, ?, ?, ?, ?, ?, 'conductor', ?, ?, ?)
-        ''', (nombre, apellido, cedula, fecha_nacimiento, email, hashed_pw, placa, serial_motor, serial_carroceria))
-        conn.commit()
-        conn.close()
-        return redirect('/admin_historial?status=conductor_ok')
-    except sqlite3.IntegrityError:
-        return "Error: Cédula o Correo duplicado en el sistema."
-
-@app.route('/conductor')
-def conductor():
-    if not verificar_autenticacion('conductor'): 
-        return redirect('/login')
-    
-    # En la prueba de campo, el conductor lee los viajes pendientes desde la DB
-    conn = sqlite3.connect(DB_PATH)
-    cursor = conn.cursor()
-    cursor.execute('''
-        SELECT viajes.id, usuarios.nombre, viajes.origen, viajes.destino, viajes.monto, viajes.fecha, viajes.estado 
-        FROM viajes JOIN usuarios ON viajes.pasajero_id = usuarios.id 
-        WHERE viajes.estado = 'Pendiente' ORDER BY viajes.id DESC
-    ''')
-    viajes_pendientes = cursor.fetchall()
-    conn.close()
-    
-    return render_template('conductor.html', driver_name=session.get('nombre'), viajes=viajes_pendientes)
 
 @app.route('/logout')
 def logout():
     session.clear()
-    return redirect('/login')
+    return redirect(url_for('login'))
+
+# ==========================================
+# RUTA DE ADMINISTRACIÓN (ADMIN)
+# ==========================================
+
+@app.route('/admin_historial')
+def admin_historial():
+    # Verificar si es admin realmente
+    if session.get('rol') != 'admin':
+        return redirect(url_for('index'))
+        
+    conn = get_db_connection()
+    
+    # Obtener el conteo rápido de usuarios
+    total_pasajeros = conn.execute("SELECT COUNT(*) FROM usuarios WHERE rol = 'pasajero'").fetchone()[0]
+    total_conductores = conn.execute("SELECT COUNT(*) FROM usuarios WHERE rol = 'conductor'").fetchone()[0]
+    
+    # Obtener el historial completo de viajes ordenado de más recientes a antiguos
+    viajes_db = conn.execute('''
+        SELECT v.id, u.nombre || ' ' || u.apellido AS pasajero, v.origen, v.destino, v.monto, v.fecha_hora, v.estado
+        FROM viajes v
+        JOIN usuarios u ON v.pasajero_id = u.id
+        ORDER BY v.id DESC
+    ''').fetchall()
+    
+    conn.close()
+    
+    return render_template('admin_historial.html', 
+                           viajes=viajes_db, 
+                           total_pasajeros=total_pasajeros, 
+                           total_conductores=total_conductores)
+
+
+@app.route('/admin/crear_conductor', methods=['POST'])
+def crear_conductor():
+    if session.get('rol') != 'admin':
+        return redirect(url_for('index'))
+        
+    nombre = request.form['nombre'].strip()
+    apellido = request.form['apellido'].strip()
+    cedula = request.form['cedula'].strip()
+    fecha_nacimiento = request.form['fecha_nacimiento']
+    email = request.form['email'].strip()
+    password = request.form['password'].strip()
+    placa = request.form['placa'].strip()
+    serial_motor = request.form.get('serial_motor', '').strip()
+    serial_carroceria = request.form.get('serial_carroceria', '').strip()
+    
+    conn = get_db_connection()
+    try:
+        conn.execute('''
+            INSERT INTO usuarios (nombre, apellido, cedula, fecha_nacimiento, email, password, rol, placa, serial_motor, serial_carroceria)
+            VALUES (?, ?, ?, ?, ?, ?, 'conductor', ?, ?, ?)
+        ''', (nombre, apellido, cedula, fecha_nacimiento, email, password, placa, serial_motor, serial_carroceria))
+        conn.commit()
+    except sqlite3.IntegrityError as e:
+        print("Error registrando conductor:", e)
+    finally:
+        conn.close()
+        
+    return redirect(url_for('admin_historial', status='conductor_ok'))
+
+# ==========================================
+# RUTAS DEL PASAJERO
+# ==========================================
+
+@app.route('/pasajero')
+def pasajero_panel():
+    if session.get('rol') != 'pasajero':
+        return redirect(url_for('index'))
+    return render_template('pasajero.html', nombre=session.get('nombre'))
+
+
+@app.route('/solicitar_viaje', methods=['POST'])
+def solicitar_viaje():
+    if session.get('rol') != 'pasajero':
+        return redirect(url_for('index'))
+        
+    origen = request.form['origen']
+    destino = request.form['destino']
+    monto = float(request.form.get('monto', 700.0))
+    pasajero_id = session.get('usuario_id')
+    
+    conn = get_db_connection()
+    conn.execute('''
+        INSERT INTO viajes (pasajero_id, origen, destino, monto, estado)
+        VALUES (?, ?, ?, ?, 'Pendiente')
+    ''', (pasajero_id, origen, destino, monto))
+    conn.commit()
+    conn.close()
+    
+    return redirect(url_for('pasajero_panel', status='success'))
+
+# ==========================================
+# RUTAS DEL CONDUCTOR (Para futuras vistas)
+# ==========================================
+
+@app.route('/conductor')
+def conductor_panel():
+    if session.get('rol') != 'conductor':
+        return redirect(url_for('index'))
+    return f"Bienvenido Conductor {session.get('nombre')}. Panel de pedidos en desarrollo."
+
 
 if __name__ == '__main__':
-    port = int(os.environ.get('PORT', 5000))
+    # Render asigna dinámicamente un puerto en producción
+    port = int(os.environ.get("PORT", 5000))
     app.run(host='0.0.0.0', port=port, debug=False)
