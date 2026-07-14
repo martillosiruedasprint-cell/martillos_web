@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="es">
 <head>
     <meta charset="UTF-8">
@@ -7,26 +7,31 @@
     <style>
         body, html { margin: 0; padding: 0; height: 100%; font-family: sans-serif; background-color: #000; color: #fff; }
         #map { height: 60vh; width: 100%; }
-        .panel { height: 40vh; background: #111; padding: 20px; text-align: center; border-top: 4px solid #ffeb3b; position: relative; }
+        .panel { height: 40vh; background: #111; padding: 20px; text-align: center; border-top: 4px solid #ffeb3b; box-sizing: border-box; position: relative; }
         h2 { color: #ffeb3b; margin-top: 0; }
         .status { padding: 10px; background: #222; border-radius: 5px; display: inline-block; border: 1px solid #ffeb3b; color: #ffeb3b; font-weight: bold; }
         .btn-logout { position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%); color: #ccc; text-decoration: none; border-bottom: 1px solid #ccc; padding-bottom: 2px; }
         
         /* Modal de Alerta de Viaje */
-        #ride-alert { display: none; background: #ffeb3b; color: #000; padding: 20px; border-radius: 10px; margin-top: 15px; box-shadow: 0 4px 15px rgba(255, 235, 59, 0.4); }
+        #ride-alert { display: none; background: #ffeb3b; color: #000; padding: 15px; border-radius: 10px; margin-top: 10px; box-shadow: 0 4px 15px rgba(255, 235, 59, 0.4); text-align: left; }
         .btn-accept { background: #000; color: #ffeb3b; font-size: 18px; font-weight: bold; border: none; padding: 12px 25px; border-radius: 5px; cursor: pointer; text-transform: uppercase; width: 100%; margin-top: 10px; }
+        .info-viaje { margin: 5px 0; font-size: 15px; }
+        .info-viaje b { color: #000; }
     </style>
 </head>
 <body>
     <div id="map"></div>
     <div class="panel">
-        <h2>Motorizado: {{ driver_name }}</h2>
+        <h2>Motorizado: {{ driver_name if driver_name else 'Disponible' }}</h2>
         <div class="status" id="status-indicator">Buscando pasajeros... 📡</div>
         
         <div id="ride-alert">
-            <h3 style="margin:0 0 10px 0;">¡NUEVA SOLICITUD!</h3>
-            <p style="margin:0 0 15px 0; font-size: 18px; font-weight: bold;">Tarifa: $2.00</p>
-            <button class="btn-accept" id="btn-accept" onclick="acceptRide()">Aceptar y Cobrar</button>
+            <h3 style="margin:0 0 5px 0; text-align: center;">¡NUEVA SOLICITUD!</h3>
+            <div class="info-viaje">Pasajero: <b id="info-pasajero">---</b></div>
+            <div class="info-viaje">Recoger en: <b id="info-origen">---</b></div>
+            <div class="info-viaje">Destino: <b id="info-destino">---</b></div>
+            <p style="margin: 10px 0 5px 0; font-size: 18px; font-weight: bold; text-align: center;">Tarifa: $2.00</p>
+            <button class="btn-accept" id="btn-accept" onclick="acceptRide()">Aceptar y ver ruta</button>
         </div>
 
         <a href="/logout" class="btn-logout">Cerrar Sesión</a>
@@ -36,17 +41,23 @@
     <script>
         // Mapa centrado en San Juan de los Morros
         var map = L.map('map').setView([9.9120, -67.3540], 15);
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
         
-        // Icono del motorizado
+        // Capa de mapa oscuro elegante para hacer juego con tu diseño
+        L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+            attribution: '&copy; OpenStreetMap contributors &copy; CARTO'
+        }).addTo(map);
+        
+        // Icono del motorizado (Punto central amarillo)
         var driverIcon = L.divIcon({
             className: 'custom-icon',
             html: "<div style='background-color:#000; width:20px; height:20px; border-radius:50%; border:3px solid #ffeb3b;'></div>",
             iconSize: [26, 26], iconAnchor: [13, 13]
         });
-        L.marker([9.9120, -67.3540], {icon: driverIcon}).addTo(map).bindPopup("Tu ubicación actual").openPopup();
-
+        
+        var driverMarker = L.marker([9.9120, -67.3540], {icon: driverIcon}).addTo(map).bindPopup("Tu ubicación actual").openPopup();
+        
         let currentRideId = null;
+        let customerMarker = null; // Variable para controlar el marcador del cliente en el mapa
 
         // Preguntar al servidor cada 3 segundos si hay viajes nuevos
         setInterval(() => {
@@ -56,10 +67,36 @@
                 .then(data => {
                     if(data.status === 'found') {
                         currentRideId = data.ride_id;
+                        
+                        // Rellenar los textos de la alerta con los datos de la Base de Datos
+                        document.getElementById('info-pasajero').innerText = data.pasajero;
+                        document.getElementById('info-origen').innerText = data.origen;
+                        document.getElementById('info-destino').innerText = data.destino;
+                        
+                        // Alternar vistas
                         document.getElementById('status-indicator').style.display = 'none';
                         document.getElementById('ride-alert').style.display = 'block';
                         
-                        // Sonido de alerta (opcional, algunos navegadores lo bloquean si no hay interacción previa)
+                        // PINTAR AL CLIENTE EN EL MAPA: 
+                        // Simulamos una coordenada del cliente en San Juan de los Morros para esta prueba
+                        let clientLat = 9.9165;
+                        let clientLng = -67.3595;
+                        
+                        if(customerMarker) map.removeLayer(customerMarker);
+                        
+                        // Marcador rojo parpadeante/destacado para el pasajero
+                        customerMarker = L.circleMarker([clientLat, clientLng], {
+                            color: '#ff3333',
+                            fillColor: '#ff3333',
+                            fillOpacity: 0.7,
+                            radius: 12
+                        }).addTo(map).bindPopup('<b>Recoger aquí a:</b><br>' + data.origen).openPopup();
+                        
+                        // Auto-ajustar el zoom del mapa para mostrar a ambos en pantalla inmediatamente
+                        var group = new L.featureGroup([driverMarker, customerMarker]);
+                        map.fitBounds(group.getBounds().pad(0.3));
+                        
+                        // Sonido de alerta
                         let audio = new Audio('https://actions.google.com/sounds/v1/alarms/beep_short.ogg');
                         audio.play().catch(e => console.log("Audio bloqueado"));
                     }
@@ -79,14 +116,33 @@
             })
             .then(r => r.json())
             .then(data => {
-                alert("¡Viaje Completado! Ganancias acreditadas a tu cuenta y comisiones enviadas al Administrador.");
-                // Reiniciar estado
-                currentRideId = null;
-                document.getElementById('ride-alert').style.display = 'none';
-                document.getElementById('status-indicator').style.display = 'inline-block';
-                btn.innerHTML = "Aceptar y Cobrar";
-                btn.style.backgroundColor = "#000";
+                if(data.success) {
+                    alert("¡Viaje Aceptado! Dirígete al punto rojo en el mapa para buscar al cliente.");
+                    
+                    // Modificamos el estado visual pero mantenemos el marcador en el mapa para guiar al conductor
+                    document.getElementById('ride-alert').style.display = 'none';
+                    document.getElementById('status-indicator').innerText = "En viaje activo 🏍️";
+                    document.getElementById('status-indicator').style.display = 'inline-block';
+                    
+                    // Nota: En la siguiente fase podemos agregar el botón "Finalizar Viaje" para limpiar el mapa
+                } else {
+                    alert("El viaje ya no está disponible.");
+                    resetPanel();
+                }
+            }).catch(err => {
+                resetPanel();
             });
+        }
+        
+        function resetPanel() {
+            currentRideId = null;
+            if(customerMarker) map.removeLayer(customerMarker);
+            document.getElementById('ride-alert').style.display = 'none';
+            document.getElementById('status-indicator').innerText = "Buscando pasajeros... 📡";
+            document.getElementById('status-indicator').style.display = 'inline-block';
+            let btn = document.getElementById('btn-accept');
+            btn.innerHTML = "Aceptar y ver ruta";
+            btn.style.backgroundColor = "#000";
         }
     </script>
 </body>
