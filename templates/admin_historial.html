@@ -10,7 +10,7 @@
         .grid-admin { display: flex; flex-wrap: wrap; gap: 20px; margin-bottom: 25px; }
         .card { background: #111; padding: 20px; border: 1px solid #333; border-radius: 8px; flex: 1; min-width: 280px; }
         .input-text { width: 100%; padding: 8px; margin: 6px 0; background: #222; border: 1px solid #444; color: #fff; border-radius: 4px; box-sizing: border-box; }
-        .btn-action { background: #ffeb3b; color: #000; font-weight: bold; border: none; padding: 10px 15px; cursor: pointer; border-radius: 4px; }
+        .btn-action { background: #ffeb3b; color: #000; font-weight: bold; border: none; padding: 10px 15px; cursor: pointer; border-radius: 4px; width: 100%; margin-top: 10px; }
         table { width: 100%; border-collapse: collapse; margin-top: 15px; background: #111; }
         th, td { padding: 12px; text-align: left; border-bottom: 1px solid #222; }
         th { background: #222; color: #ffeb3b; }
@@ -18,6 +18,8 @@
         .badge-pendiente { background: #ff9800; color: #000; }
         .badge-aceptado { background: #2196f3; color: #fff; }
         .btn-logout { float: right; background: #ff3b30; color:#fff; text-decoration:none; padding:8px 15px; border-radius:4px; font-size:14px; font-weight:bold; }
+        .seccion-form { border-top: 1px solid #333; margin-top: 10px; padding-top: 10px; }
+        .titulito { font-size: 11px; color: #ffeb3b; text-transform: uppercase; font-weight: bold; margin-bottom: 4px; }
     </style>
 </head>
 <body>
@@ -47,14 +49,32 @@
             </form>
         </div>
 
-        <!-- Tarjeta 3: Alta de Nuevos Motorizados (Exclusivo Admin) -->
-        <div class="card">
-            <h3>🏍️ Registrar Nuevo Motorizado</h3>
+        <!-- Tarjeta 3: Alta Completa de Motorizados -->
+        <div class="card" style="min-width: 320px;">
+            <h3>🏍️ Alta de Motorizado con Expediente</h3>
             <form action="/admin/crear_conductor" method="POST">
-                <input type="text" name="nombre" placeholder="Nombre completo" required class="input-text">
-                <input type="email" name="email" placeholder="Correo electrónico" required class="input-text">
-                <input type="password" name="password" placeholder="Contraseña temporal" required class="input-text">
-                <button type="submit" class="btn-action" style="background:#fff; color:#000;">Dar de Alta</button>
+                
+                <div class="titulito">Datos Personales</div>
+                <input type="text" name="nombre" placeholder="Nombres" required class="input-text">
+                <input type="text" name="apellido" placeholder="Apellidos" required class="input-text">
+                <input type="text" name="cedula" placeholder="Número de Cédula" required class="input-text">
+                <span style="font-size:12px; color:#aaa;">Fecha de Nacimiento:</span>
+                <input type="date" name="fecha_nacimiento" required class="input-text">
+                
+                <div class="seccion-form">
+                    <div class="titulito">Datos del Vehículo</div>
+                    <input type="text" name="placa" placeholder="Número de Placa" required class="input-text">
+                    <input type="text" name="serial_motor" placeholder="Serial del Motor" required class="input-text">
+                    <input type="text" name="serial_carroceria" placeholder="Serial de Carrocería" required class="input-text">
+                </div>
+
+                <div class="seccion-form">
+                    <div class="titulito">Credenciales de Acceso</div>
+                    <input type="email" name="email" placeholder="Correo electrónico" required class="input-text">
+                    <input type="password" name="password" placeholder="Contraseña de acceso" required class="input-text">
+                </div>
+
+                <button type="submit" class="btn-action" style="background:#fff; color:#000;">REGISTRAR E INTEGRAR</button>
             </form>
         </div>
 
@@ -66,7 +86,7 @@
                 <input type="file" name="imagen" accept="image/*" style="margin:5px 0; font-size:12px;"><br><br>
                 Video de Intro (MP4):<br>
                 <input type="file" name="video" accept="video/mp4" style="margin:5px 0; font-size:12px;"><br><br>
-                <button type="submit" class="btn-action" style="padding:5px 10px; font-size:12px;">Subir Archivos</button>
+                <button type="submit" class="btn-action" style="padding:5px 10px; font-size:12px; width:auto;">Subir Archivos</button>
             </form>
         </div>
 
