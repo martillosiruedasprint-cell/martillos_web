@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="es">
 <head>
     <meta charset="UTF-8">
@@ -21,8 +21,52 @@
         Saldo: <b>${{ "%.2f"|format(session.get('balance', 0.0)) }}</b>
     </div>
 
-    <button class="boton-gigante" onclick="alert('Buscando conductor cercano...')">
+    <!-- Modificamos la función para que ejecute nuestro script -->
+    <button class="boton-gigante" onclick="solicitarViaje()">
         PEDIR<br>MOTO
     </button>
+
+    <script>
+        function solicitarViaje() {
+            // Preguntamos dinámicamente el destino
+            const destino = prompt("¿A dónde te diriges?");
+            
+            // Si el usuario cancela o lo deja vacío, detenemos el envío
+            if (!destino || destino.trim() === "") {
+                return;
+            }
+
+            // Creamos un formulario temporal en el navegador para enviar los datos por POST a Flask
+            const form = document.createElement('form');
+            form.method = 'POST';
+            form.action = '/solicitar_viaje';
+
+            // 1. Enviamos el nombre del Pasajero (obtenido de la sesión)
+            const inputPasajero = document.createElement('input');
+            inputPasajero.type = 'hidden';
+            inputPasajero.name = 'pasajero';
+            inputPasajero.value = "{{ session.get('email', 'Invitado') }}";
+            form.appendChild(inputPasajero);
+
+            // 2. Enviamos el Origen (por defecto ponemos Ubicación Actual)
+            const inputOrigen = document.createElement('input');
+            inputOrigen.type = 'hidden';
+            inputOrigen.name = 'origen';
+            inputOrigen.value = "Mi ubicación actual";
+            form.appendChild(inputOrigen);
+
+            // 3. Enviamos el Destino ingresado en el prompt
+            const inputDestino = document.createElement('input');
+            inputDestino.type = 'hidden';
+            inputDestino.name = 'destino';
+            inputDestino.value = destino;
+            form.appendChild(inputDestino);
+
+            // Añadimos el formulario al documento y lo enviamos
+            document.body.appendChild(form);
+            alert("¡Buscando conductor cercano para tu viaje a: " + destino + "!");
+            form.submit();
+        }
+    </script>
 </body>
 </html>
