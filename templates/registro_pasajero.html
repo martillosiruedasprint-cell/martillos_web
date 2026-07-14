@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Registro Pasajero | Martillos & Ruedas</title>
+    <style>
+        body { background: #000; color: #fff; font-family: sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
+        .box { background: #111; padding: 30px; border-radius: 12px; border: 1px solid #ffeb3b; width: 320px; }
+        .input-field { width: 100%; padding: 10px; margin: 8px 0; background: #222; border: 1px solid #444; color: #fff; border-radius: 6px; box-sizing: border-box; }
+        .btn { width: 100%; padding: 12px; background: #ffeb3b; color: #000; border: none; font-weight: bold; font-size: 16px; cursor: pointer; border-radius: 6px; margin-top: 10px; }
+    </style>
+</head>
+<body>
+    <div class="box">
+        <h2 style="color:#ffeb3b; text-align:center; margin-bottom:20px;">Registro de Pasajero</h2>
+        <form method="POST">
+            Nombre Completo:<br>
+            <input type="text" name="nombre" required class="input-field"><br>
+            Correo Electrónico:<br>
+            <input type="email" name="email" required class="input-field"><br>
+            Contraseña:<br>
+            <input type="password" name="password" required class="input-field"><br>
+            <button type="submit" class="btn">Crear Cuenta</button>
+        </form>
+        <p style="text-align:center; font-size:13px; margin-top:15px;">
+            ¿Ya tienes cuenta? <a href="/login" style="color:#ffeb3b; text-decoration:none;">Inicia Sesión</a>
+        </p>
+    </div>
+</body>
+</html>
