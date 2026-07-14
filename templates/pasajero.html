@@ -50,18 +50,22 @@
         <h1>Hola, {{ nombre }}</h1>
 
         <div id="status-container">
-            <!-- Mensaje de carga del GPS -->
-            <div id="gps-status" class="status info">🛰️ Obteniendo tu ubicación exacta por GPS...</div>
+            <!-- Bloque de control de GPS -->
+            <div id="gps-status" class="status info">🔒 Se requiere permiso para acceder a tu ubicación. Esperando autorización...</div>
         </div>
 
         <!-- SOLICITAR VIAJE -->
         <div class="card">
             <h3>🚖 Solicitar Nuevo Viaje</h3>
-            <p style="color: #aaa; font-size: 14px; margin-top: 0;">Límite del servicio: San Juan de los Morros. Tarifas de 1.000 Bs. a 10.000 Bs.</p>
+            <p style="color: #aaa; font-size: 14px; margin-top: 0; margin-bottom: 15px;">
+                Límite del servicio: San Juan de los Morros.<br>
+                <strong style="color: #ffeb3b;">Tarifa fija por carrera: 700 Bs.</strong>
+            </p>
             
             <form action="/solicitar_viaje" method="POST" autocomplete="off" id="form-viaje">
-                <!-- Campo de origen OCULTO, se llena automáticamente por GPS -->
+                <!-- Envíos automáticos ocultos al backend -->
                 <input type="hidden" id="origen" name="origen" value="Ubicación GPS no detectada">
+                <input type="hidden" name="monto" value="700">
                 
                 <div style="position: relative; margin-bottom: 12px;">
                     ¿A dónde vas? (Destino):
@@ -69,11 +73,8 @@
                     <div id="destino-suggestions" class="autocomplete-suggestions"></div>
                 </div>
                 
-                Monto del Viaje (Bs.):
-                <input type="number" name="monto" min="1000" max="10000" required class="input-field" placeholder="Ej: 2500">
-                
-                <!-- Deshabilitamos el botón hasta que tengamos la ubicación del GPS -->
-                <button type="submit" id="btn-pedir" class="btn" disabled>Esperando ubicación GPS...</button>
+                <!-- Deshabilitado por defecto hasta conceder permisos -->
+                <button type="submit" id="btn-pedir" class="btn" disabled>Activa el GPS para solicitar</button>
             </form>
         </div>
     </div>
@@ -84,57 +85,69 @@
         const btnPedir = document.getElementById('btn-pedir');
         const inputOrigenOculto = document.getElementById('origen');
 
-        // --- SISTEMA GPS DEL DISPOSITIVO ---
-        if (navigator.geolocation) {
-            navigator.geolocation.getCurrentPosition(
-                (position) => {
-                    const lat = position.coords.latitude;
-                    const lon = position.coords.longitude;
+        // --- SISTEMA SOLICITUD DE PERMISOS GPS ---
+        function solicitarUbicacion() {
+            if (navigator.geolocation) {
+                gpsStatusDiv.innerHTML = "🛰️ Conectando con los satélites GPS del teléfono...";
+                
+                navigator.geolocation.getCurrentPosition(
+                    (position) => {
+                        const lat = position.coords.latitude;
+                        const lon = position.coords.longitude;
 
-                    // Consultamos el servidor gratuito de OpenStreetMap para traducir las coordenadas a una dirección real
-                    const reverseUrl = `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&zoom=18&addressdetails=1`;
+                        // Traducción de coordenadas a dirección legible
+                        const reverseUrl = `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&zoom=18&addressdetails=1`;
 
-                    fetch(reverseUrl, { headers: { 'Accept-Language': 'es' } })
-                        .then(response => response.json())
-                        .then(data => {
-                            if (data && data.display_name) {
-                                // Limpiamos el texto largo para que sea legible por el chofer
-                                let direccionSencilla = data.display_name.split(',').slice(0, 3).join(',');
-                                inputOrigenOculto.value = `📍 Ubicación actual (${direccionSencilla})`;
-                                
-                                // Actualizamos los elementos visuales
-                                gpsStatusDiv.className = "status success";
-                                gpsStatusDiv.innerHTML = `✅ Ubicación detectada: <i>${direccionSencilla}</i>`;
-                                btnPedir.disabled = false;
-                                btnPedir.textContent = "Pedir Moto Ahora";
-                            } else {
+                        fetch(reverseUrl, { headers: { 'Accept-Language': 'es' } })
+                            .then(response => response.json())
+                            .then(data => {
+                                if (data && data.display_name) {
+                                    let direccionSencilla = data.display_name.split(',').slice(0, 3).join(',');
+                                    inputOrigenOculto.value = `📍 Ubicación actual (${direccionSencilla})`;
+                                    
+                                    gpsStatusDiv.className = "status success";
+                                    gpsStatusDiv.innerHTML = `✅ Ubicación autorizada: <i>${direccionSencilla}</i>`;
+                                    btnPedir.disabled = false;
+                                    btnPedir.textContent = "Pedir Moto Ahora (700 Bs.)";
+                                } else {
+                                    fallbackGps(lat, lon);
+                                }
+                            })
+                            .catch(() => {
                                 fallbackGps(lat, lon);
-                            }
-                        })
-                        .catch(() => {
-                            fallbackGps(lat, lon);
-                        });
-                },
-                (error) => {
-                    console.error("Error de geolocalización: ", error);
-                    gpsStatusDiv.className = "status error";
-                    gpsStatusDiv.innerHTML = "❌ No pudimos acceder a tu GPS. Por favor activa los permisos de ubicación en tu navegador para continuar.";
-                },
-                { enableHighAccuracy: true, timeout: 10000 }
-            );
-        } else {
-            gpsStatusDiv.className = "status error";
-            gpsStatusDiv.innerHTML = "❌ Tu navegador no soporta la detección automática de ubicación.";
+                            });
+                    },
+                    (error) => {
+                        console.error("Error de geolocalización: ", error);
+                        gpsStatusDiv.className = "status error";
+                        
+                        // Manejo explícito de las respuestas del navegador
+                        if(error.code === error.PERMISSION_DENIED) {
+                            gpsStatusDiv.innerHTML = "❌ Permiso denegado. Debes permitir el acceso a la ubicación en los ajustes de tu navegador para poder pedir una moto.";
+                        } else {
+                            gpsStatusDiv.innerHTML = "❌ Error al obtener tu señal de GPS. Inténtalo de nuevo o muévete a un lugar abierto.";
+                        }
+                    },
+                    { enableHighAccuracy: true, timeout: 15000 }
+                );
+            } else {
+                gpsStatusDiv.className = "status error";
+                gpsStatusDiv.innerHTML = "❌ Tu dispositivo no es compatible con la geolocalización.";
+            }
         }
 
         function fallbackGps(lat, lon) {
-            // En caso de que el traductor de direcciones falle, enviamos las coordenadas directas al conductor
             inputOrigenOculto.value = `📍 Coordenadas GPS (${lat.toFixed(5)}, ${lon.toFixed(5)})`;
             gpsStatusDiv.className = "status success";
-            gpsStatusDiv.innerHTML = "✅ Ubicación fijada por coordenadas GPS.";
+            gpsStatusDiv.innerHTML = "✅ Ubicación fijada por coordenadas de satélite.";
             btnPedir.disabled = false;
-            btnPedir.textContent = "Pedir Moto Ahora";
+            btnPedir.textContent = "Pedir Moto Ahora (700 Bs.)";
         }
+
+        // Ejecutar la solicitud de permiso inmediatamente al cargar la página
+        window.onload = () => {
+            solicitarUbicacion();
+        };
 
         // --- AUTOCOMPLETADO DE DESTINO ---
         function configurarAutocompletarDestino() {
@@ -192,20 +205,15 @@
 
         configurarAutocompletarDestino();
 
-        // Alertas de estado
+        // Alertas del backend
         const params = new URLSearchParams(window.location.search);
         const status = params.get('status');
         const container = document.getElementById('status-container');
         if (status === 'success') {
             const successDiv = document.createElement('div');
             successDiv.className = 'status success';
-            successDiv.textContent = '¡Viaje solicitado con éxito! Esperando conductor...';
+            successDiv.textContent = '¡Viaje solicitado con éxito! Tu conductor va en camino por 700 Bs.';
             container.appendChild(successDiv);
-        } else if (status === 'limite_monto') {
-            const errDiv = document.createElement('div');
-            errDiv.className = 'status error';
-            errDiv.textContent = 'El monto debe estar entre 1.000 Bs. y 10.000 Bs.';
-            container.appendChild(errDiv);
         }
     </script>
 </body>
